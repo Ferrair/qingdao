@@ -420,12 +420,13 @@ def generate_head_dict(data_per_brand: dict, criterion: dict, round_: bool = Tru
     init_per_brand = {}
     stable_per_brand = {}
 
-    # todo change np.array to list ??
     for index, item in enumerate(init_value):
-        init_per_brand[item] = np.round(np.mean(init_value[item], axis=0), 2) if round_ else np.mean(init_value[item], axis=0)
+        result_ = np.round(np.mean(init_value[item], axis=0), 2) if round_ else np.mean(init_value[item], axis=0)
+        init_per_brand[item] = list(result_)
 
     for index, item in enumerate(stable_value):
-        stable_per_brand[item] = np.round(np.mean(stable_value[item], axis=0), 2) if round_ else np.mean(stable_value[item], axis=0)
+        result_ = np.round(np.mean(stable_value[item], axis=0), 2) if round_ else np.mean(stable_value[item], axis=0)
+        stable_per_brand[item] = list(result_)
 
     return init_per_brand, stable_per_brand
 

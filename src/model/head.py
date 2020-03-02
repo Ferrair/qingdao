@@ -49,6 +49,9 @@ class HeadModel(BasicModel):
         """
         if index > self.range_:
             raise Exception('index is out of range. Might not in HEAD stage')
+        if not self.init_per_brand or not self.stable_per_brand:
+            raise Exception('No available model, please train a new model or load from disk.')
+
         # region 1
         if index < 16:  # magic number, generated after data processing
             pred_head_one = self.init_per_brand[brand][0]

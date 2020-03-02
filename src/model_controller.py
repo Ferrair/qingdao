@@ -1,4 +1,4 @@
-from src.manager.model_manager import load_best_model_prefix, load_latest_model_dir
+from src.manager.model_manager import load_current_model
 from src.data_processing.processing import *
 from src.model.head import HeadModel
 from src.model.lr_model import LRModel
@@ -16,17 +16,9 @@ model_head = HeadModel(STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE)
 one_hot = None
 
 
-def api_load_current_model_name():
-    return jsonify(load_current_model_prefix('produce'))
-
-
 def api_select_current_model_name():
     current_model_name = request.json['current_model_name']
     return current_model_name
-
-
-def load_current_model_prefix(stage: str) -> str:
-    return load_best_model_prefix(stage)
 
 
 def train_val_model():
@@ -88,15 +80,15 @@ def predict():
     stage = data['stage']
     brand = data['brand']
     features = data['features']
-    features = np.concatenate([features, one_hot[brand]])
-
     if stage == 'produce':
         if len(features) != len(feature_column) * 5 * SPLIT_NUM:
-            raise Exception('len(features) wrong')
+            raise Exception('len(features) wrong, excepted=' + str(len(feature_column) * 5 * SPLIT_NUM) + ' current=' + str(len(features)))
+        # features = np.concatenate([features, one_hot[brand]])
         pred = model_produce.predict(features)
     elif stage == 'transition':
         if len(features) != len(feature_column) * 5 * TRANSITION_SPLIT_NUM:
-            raise Exception('len(features) wrong')
+            raise Exception('len(features) wrong, excepted=' + str(len(feature_column) * 5 * SPLIT_NUM) + ' current=' + str(len(features)))
+        # features = np.concatenate([features, one_hot[brand]])
         pred = model_transition.predict(features)
     elif stage == 'head':
         pred = model_head.predict(brand, index)
@@ -129,8 +121,9 @@ def api_load_model_config():
 
 if __name__ == '__main__':
     create_dir(MODEL_SAVE_DIR)
-    model_produce.load(MODEL_SAVE_DIR + load_best_model_prefix('produce'))
-    model_transition.load(MODEL_SAVE_DIR + load_best_model_prefix('transition'))
-    one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_latest_model_dir() + '/' + load_latest_model_dir() + '#one-hot-brands')
+    model_produce.load(MODEL_SAVE_DIR + load_current_model('produce'))
+    model_transition.load(MODEL_SAVE_DIR + load_current_model('transition'))
+    model_head.load(MODEL_SAVE_DIR + load_current_model('head'))
+    one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
 
     app.run(host='0.0.0.0')
