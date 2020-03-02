@@ -40,7 +40,7 @@ class LRModel(BasicLRModel):
             X_test = self.scaler.transform(X_test)
 
         pred = self.model.predict(X_test)
-        return pred
+        return pred[:, 2]
 
     def save(self, saved_path: str):
         super().save(saved_path)
@@ -75,4 +75,4 @@ class LRModel(BasicLRModel):
         self.mapping_test = mapping_test
         self.train(X_train, y_train)
         pred = self.predict(X_test)
-        return super().evaluate(y_test, pred, delta_test)
+        return super().evaluate(y_test, pred[:, :2], delta_test)

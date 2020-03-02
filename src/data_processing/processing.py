@@ -19,6 +19,7 @@ columns = [
 
 feature_column = ['出口水分差值', '热风速度实际值', '入口水分', '罩压力', '筒壁1区温度实际值', '筒壁1区温度设定值', '筒壁2区温度实际值', '筒壁2区温度设定值']
 label_column = ['筒壁1区温度设定值', '筒壁2区温度设定值']
+auxiliary_column = ['出口水分']
 
 STABLE_WINDOWS_SIZE = 10  # 稳态的时长
 SPLIT_NUM = 10  # 特征选取分割区间的数量（需要被FEATURE_RANGE整除）
@@ -163,15 +164,22 @@ def calc_integral(data_: np.array) -> np.array:
     return sum_ - (data_[:, 0, :] + data_[:, data_.shape[1] - 1, :]) / 2
 
 
-def calc_label(item_: pd.DataFrame, start: int, end: int) -> np.array:
+def calc_label(item_: pd.DataFrame, start: int, end: int, auxiliary_start: int or None = None, auxiliary_end: int or None = None) -> np.array:
     """
     calc label for each sample
+    :param auxiliary_end:
+    :param auxiliary_start:
     :param item_: sample data
     :param start: the start time to calc label
     :param end: the end time to calc label
     :return: a array with exactly 2 number: temperature of region 1 and temperature of region 2
     """
-    return np.mean(item_[label_column].iloc[start: end].values, axis=0)
+    label_ = np.mean(item_[label_column].iloc[start: end].values, axis=0)
+    if auxiliary_start and auxiliary_end and auxiliary_start <= auxiliary_end:
+        auxiliary_ = np.mean(item_[auxiliary_column].iloc[auxiliary_start: auxiliary_end].values, axis=0)
+        return np.concatenate([label_, auxiliary_])
+    else:
+        return label_
 
 
 def calc_current(item_: pd.DataFrame, start: int) -> np.array:
@@ -250,7 +258,9 @@ def generate_brand_transition_training_data(item_brand, brand_index: int, settin
                 calc_label(
                     item_batch,
                     adjust_start,
-                    adjust_end
+                    adjust_end,
+                    stable_start,
+                    stable_start + STABLE_WINDOWS_SIZE
                 )
             )
 
@@ -341,6 +351,8 @@ def generate_brand_produce_training_data(item_brand, brand_index: int, setting: 
                     item_batch,
                     adjust_start,
                     adjust_end,
+                    stable_start,
+                    stable_start + STABLE_WINDOWS_SIZE
                 )
             )
 
