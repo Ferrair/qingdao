@@ -1,6 +1,7 @@
 import numpy as np
 
 from src.model.base import BasicModel
+from src.utils.util import save_dict_to_txt, read_txt_to_dict
 
 
 class HeadModel(BasicModel):
@@ -20,10 +21,8 @@ class HeadModel(BasicModel):
         """
         super().save(saved_path)
         self.check_model_state()
-        f = open(saved_path + '.txt', 'w')
         head_model = {'init_per_brand': self.init_per_brand, 'stable_per_brand': self.stable_per_brand}
-        f.write(str(head_model))
-        f.close()
+        save_dict_to_txt(saved_path, head_model)
 
     def load(self, loaded_path: str):
         """
@@ -31,11 +30,9 @@ class HeadModel(BasicModel):
         :param loaded_path: path and filename to load model and scaler
         """
         super().load(loaded_path)
-        f = open(loaded_path + '.txt', 'r')
-        head_model = eval(f.read())
+        head_model = read_txt_to_dict(loaded_path)
         self.init_per_brand = head_model['init_per_brand']
         self.stable_per_brand = head_model['stable_per_brand']
-        f.close()
 
     def check_model_state(self):
         if self.init_per_brand is None:

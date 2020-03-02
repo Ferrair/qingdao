@@ -19,3 +19,16 @@ def get_current_time() -> str:
 def create_dir(path: str):
     if not os.path.exists(path):
         os.mkdir(path)
+
+
+def save_dict_to_txt(path: str, data: dict):
+    f = open(path + '.txt', 'w')
+    f.write(str(data))
+    f.close()
+
+
+def read_txt_to_dict(path: str) -> dict:
+    f = open(path + '.txt', 'r')
+    dict_ = eval(f.read())
+    f.close()
+    return dict_

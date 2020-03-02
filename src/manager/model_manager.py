@@ -28,3 +28,5 @@ def load_all_model_dir() -> list:
     return sorted(os.listdir(MODEL_SAVE_DIR), reverse=True)
 
 
+def load_latest_model_dir() -> str:
+    return load_all_model_dir()[0]

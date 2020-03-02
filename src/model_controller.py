@@ -1,16 +1,11 @@
-import os
-import numpy as np
-
-from src.manager.model_manager import load_best_model_prefix
-from src.data_processing.processing import read_data, data_clean, split_data_by_brand, generate_all_training_data, generate_validation_data, \
-    predict_head, generate_head_dict, STABLE_UNAVAILABLE, TRANSITION_FEATURE_RANGE, FEATURE_RANGE, SPLIT_NUM, TRANSITION_SPLIT_NUM, \
-    feature_column
+from src.manager.model_manager import load_best_model_prefix, load_latest_model_dir
+from src.data_processing.processing import *
 from src.model.head import HeadModel
 from src.model.lr_model import LRModel
 from flask import Flask, jsonify, request
 import pandas as pd
 from src.config.config import MODEL_SAVE_DIR
-from src.utils.util import create_dir, get_current_time
+from src.utils.util import *
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -18,6 +13,7 @@ app.config['SECRET_KEY'] = 'secret!'
 model_produce = LRModel()
 model_transition = LRModel()
 model_head = HeadModel(STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE)
+one_hot = None
 
 
 def api_load_current_model_name():
@@ -39,13 +35,14 @@ def train_val_model():
     data = read_data('../data.csv')
     data = data_clean(data)
     data_per_brand, criterion = split_data_by_brand(data)
+    one_hot = encode(list(data_per_brand.keys()))
 
     # Produce stage
-    X_produce, y_produce, delta_produce, mapping_produce = generate_all_training_data(data_per_brand, criterion, 'produce')
+    X_produce, y_produce, delta_produce, mapping_produce = generate_all_training_data(data_per_brand, criterion, one_hot, 'produce')
     metrics_produce = model_produce.train_validate(X_produce, y_produce, delta_produce, mapping_produce)
 
     # Transition stage
-    X_transition, y_transition, delta_transition, mapping_transition = generate_all_training_data(data_per_brand, criterion, 'transition')
+    X_transition, y_transition, delta_transition, mapping_transition = generate_all_training_data(data_per_brand, criterion, one_hot, 'transition')
     metrics_transition = model_transition.train_validate(X_transition, y_transition, delta_transition, mapping_transition)
 
     # Head stage
@@ -57,10 +54,12 @@ def train_val_model():
     model_produce_save_path = model_save_dir + '#produce#' + str(round(metrics_produce['mae'], 3))
     model_transition_save_path = model_save_dir + '#transition#' + str(round(metrics_transition['mae'], 3))
     model_head_save_path = model_save_dir + '#head'
+    one_hot_save_path = model_save_dir + '#one-hot-brands'
 
     model_produce.save(model_produce_save_path)
     model_transition.save(model_transition_save_path)
     model_head.save(model_head_save_path)
+    save_dict_to_txt(one_hot_save_path, one_hot)
 
 
 def validate(data_per_batch: pd.DataFrame) -> np.array:
@@ -83,12 +82,13 @@ def test():
 @app.route('/api/predict', methods=["POST"])
 def predict():
     data = request.get_json()
-    time = data['time']
+    time_ = data['time']
     batch = data['batch']
     index = data['index']
     stage = data['stage']
     brand = data['brand']
     features = data['features']
+    features = np.concatenate([features, one_hot[brand]])
 
     if stage == 'produce':
         if len(features) != len(feature_column) * 5 * SPLIT_NUM:
@@ -110,7 +110,7 @@ def predict():
         'batch': batch,
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
-        'time': time,
+        'time': time_,
         'version': '1',
         'deviceStatus': 'deviceStatus'
     })
@@ -129,8 +129,8 @@ def api_load_model_config():
 
 if __name__ == '__main__':
     create_dir(MODEL_SAVE_DIR)
-
     model_produce.load(MODEL_SAVE_DIR + load_best_model_prefix('produce'))
     model_transition.load(MODEL_SAVE_DIR + load_best_model_prefix('transition'))
+    one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_latest_model_dir() + '/' + load_latest_model_dir() + '#one-hot-brands')
 
     app.run(host='0.0.0.0')

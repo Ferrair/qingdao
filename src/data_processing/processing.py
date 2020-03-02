@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import skew
 from scipy.stats import kurtosis
-
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from src.utils.util import format_time
 
 columns = [
@@ -190,13 +190,15 @@ def calc_delta(item_: pd.DataFrame, start: int, end: int) -> np.array:
     return delta.values
 
 
-def generate_brand_transition_training_data(item_brand, brand_index, setting) -> Tuple[np.array, np.array, np.array, np.array]:
+def generate_brand_transition_training_data(item_brand, brand_index: int, setting: float, one_hot_brand: np.array) \
+        -> Tuple[np.array, np.array, np.array, np.array]:
     """
     generate training data and label for one brand in 'transition' stage
     this method is time consuming
     :param item_brand: the brand data to generate
     :param brand_index: brand index
     :param setting: the setting value
+    :param one_hot_brand: brand one hot encode
     :return:
         brand_train_data: all training data for this brand, shape=(N, M),
             which N denotes the number of training data, M denotes the number of feature
@@ -233,12 +235,14 @@ def generate_brand_transition_training_data(item_brand, brand_index, setting) ->
 
             # store feature
             brand_train_data.append(
-                calc_feature(
-                    item_batch,
-                    adjust_start,
-                    TRANSITION_FEATURE_RANGE,
-                    TRANSITION_SPLIT_NUM
-                )
+                np.concatenate([
+                    calc_feature(
+                        item_batch,
+                        adjust_start,
+                        FEATURE_RANGE,
+                        SPLIT_NUM
+                    ), one_hot_brand
+                ])
             )
 
             # store label
@@ -276,13 +280,15 @@ def generate_brand_transition_training_data(item_brand, brand_index, setting) ->
     return brand_train_data, brand_train_label, brand_delta, brand_mapping,
 
 
-def generate_brand_produce_training_data(item_brand, brand_index, setting) -> Tuple[np.array, np.array, np.array, np.array]:
+def generate_brand_produce_training_data(item_brand, brand_index: int, setting: float, one_hot_brand: np.array) \
+        -> Tuple[np.array, np.array, np.array, np.array]:
     """
     generate training data and label for one brand in 'produce' stage
     this method is time consuming
     :param item_brand: the brand data to generate
     :param brand_index: brand index
     :param setting: the setting value
+    :param one_hot_brand: brand one hot encode
     :return:
         brand_train_data: all training data for this brand, shape=(N, M),
             which N denotes the number of training data, M denotes the number of feature
@@ -319,12 +325,14 @@ def generate_brand_produce_training_data(item_brand, brand_index, setting) -> Tu
 
             # store feature
             brand_train_data.append(
-                calc_feature(
-                    item_batch,
-                    adjust_start,
-                    FEATURE_RANGE,
-                    SPLIT_NUM
-                )
+                np.concatenate([
+                    calc_feature(
+                        item_batch,
+                        adjust_start,
+                        FEATURE_RANGE,
+                        SPLIT_NUM
+                    ), one_hot_brand
+                ])
             )
 
             # store label
@@ -412,6 +420,7 @@ def generate_head_dict(data_per_brand: dict, criterion: dict, round_: bool = Tru
     init_per_brand = {}
     stable_per_brand = {}
 
+    # todo change np.array to list ??
     for index, item in enumerate(init_value):
         init_per_brand[item] = np.round(np.mean(init_value[item], axis=0), 2) if round_ else np.mean(init_value[item], axis=0)
 
@@ -421,11 +430,12 @@ def generate_head_dict(data_per_brand: dict, criterion: dict, round_: bool = Tru
     return init_per_brand, stable_per_brand
 
 
-def generate_all_training_data(data_per_brand: dict, criterion: dict, stage: str) -> Tuple[np.array, np.array, np.array, np.array]:
+def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: dict, stage: str) -> Tuple[np.array, np.array, np.array, np.array]:
     """
     generate training data and label for all brand
     :param data_per_brand: all brand data
     :param criterion: criterion for each brand
+    :param one_hot: one hot encode for each brand
     :param stage: including 'transition', 'produce'
     :return:
         train_data: all training data, shape=(N, M),
@@ -445,7 +455,8 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, stage: str
             brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_produce_training_data(
                 data_per_brand[brand],
                 brand_index,
-                criterion[brand]
+                criterion[brand],
+                np.array(one_hot[brand])
             )
             train_data_list.append(brand_train_data)
             train_label_list.append(brand_train_label)
@@ -463,7 +474,8 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, stage: str
             brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_transition_training_data(
                 data_per_brand[brand],
                 brand_index,
-                criterion[brand]
+                criterion[brand],
+                np.array(one_hot[brand])
             )
             train_data_list.append(brand_train_data)
             train_label_list.append(brand_train_label)
@@ -580,3 +592,20 @@ def clip(pred: np.array, min_1: float, max_1: float, min_2: float, max_2: float)
     pred[0] = np.clip(pred[0], min_1, max_1)
     pred[1] = np.clip(pred[1], min_2, max_2)
     return pred
+
+
+def encode(brand_keys: list) -> dict:
+    """
+    encoder each brand (one hot)
+    :param brand_keys: all brand names
+    :return: dict(brand name, one hot encodes)
+    """
+    label_encoder = LabelEncoder()
+    integer_encoded = label_encoder.fit_transform(brand_keys)
+    one_hot_encoder = OneHotEncoder(sparse=False)
+    one_hot = one_hot_encoder.fit_transform(integer_encoded.reshape(-1, 1))
+
+    one_hot_dict = {}
+    for i in range(len(brand_keys)):
+        one_hot_dict[brand_keys[i]] = list(one_hot[i])
+    return one_hot_dict
