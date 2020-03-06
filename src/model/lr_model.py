@@ -40,7 +40,7 @@ class LRModel(BasicLRModel):
             X_test = self.scaler.transform(X_test)
 
         pred = self.model.predict(X_test)
-        return pred[:, 2]
+        return pred[:, :2]
 
     def save(self, saved_path: str):
         super().save(saved_path)

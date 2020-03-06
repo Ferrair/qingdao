@@ -80,15 +80,18 @@ def predict():
     stage = data['stage']
     brand = data['brand']
     features = data['features']
+    if brand not in one_hot.keys():
+        return jsonify('wrong batch')
+
     if stage == 'produce':
         if len(features) != len(feature_column) * 5 * SPLIT_NUM:
             raise Exception('len(features) wrong, excepted=' + str(len(feature_column) * 5 * SPLIT_NUM) + ' current=' + str(len(features)))
-        # features = np.concatenate([features, one_hot[brand]])
+        features = np.concatenate([features, one_hot[brand]])
         pred = model_produce.predict(features)
     elif stage == 'transition':
         if len(features) != len(feature_column) * 5 * TRANSITION_SPLIT_NUM:
             raise Exception('len(features) wrong, excepted=' + str(len(feature_column) * 5 * SPLIT_NUM) + ' current=' + str(len(features)))
-        # features = np.concatenate([features, one_hot[brand]])
+        features = np.concatenate([features, one_hot[brand]])
         pred = model_transition.predict(features)
     elif stage == 'head':
         pred = model_head.predict(brand, index)
