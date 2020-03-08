@@ -105,8 +105,10 @@ def predict():
         'batch': batch,
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
-        'time': time_,
-        'version': '1',
+        'furtherHumid': pred[2] if len(pred) > 2 else 0,
+        'time': time_,  # sample time
+        'predTime': int(time.time() * 1000),  # predict time
+        'version': '1.1',
         'deviceStatus': 'deviceStatus'
     })
 
@@ -130,3 +132,20 @@ if __name__ == '__main__':
     one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
 
     app.run(host='0.0.0.0')
+
+# for test use
+#
+# X_test = np.array(X_test)
+# feature_slice = np.array(np.vsplit(X_test, SPLIT_NUM))
+# feature = np.concatenate([
+#     np.mean(feature_slice, axis=1).ravel(),
+#     np.std(feature_slice, axis=1).ravel(),
+#     calc_integral(feature_slice).ravel(),
+#     skew(feature_slice, axis=1).ravel(),
+#     kurtosis(feature_slice, axis=1).ravel(),
+# ])
+# feature = feature.ravel()
+# feature = np.concatenate([feature, one_hot_dict['TG####A']])
+# feature = feature.reshape((1, len(feature)))
+# a = scaler.transform(feature)
+# a_pred = clf.predict(a)

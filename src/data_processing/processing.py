@@ -167,11 +167,11 @@ def calc_integral(data_: np.array) -> np.array:
 def calc_label(item_: pd.DataFrame, start: int, end: int, auxiliary_start: int or None = None, auxiliary_end: int or None = None) -> np.array:
     """
     calc label for each sample
-    :param auxiliary_end:
-    :param auxiliary_start:
     :param item_: sample data
     :param start: the start time to calc label
     :param end: the end time to calc label
+    :param auxiliary_end: auxiliary humid start
+    :param auxiliary_start: auxiliary humid end
     :return: a array with exactly 2 number: temperature of region 1 and temperature of region 2
     """
     label_ = np.mean(item_[label_column].iloc[start: end].values, axis=0)
@@ -247,8 +247,8 @@ def generate_brand_transition_training_data(item_brand, brand_index: int, settin
                     calc_feature(
                         item_batch,
                         adjust_start,
-                        FEATURE_RANGE,
-                        SPLIT_NUM
+                        TRANSITION_FEATURE_RANGE,
+                        TRANSITION_SPLIT_NUM
                     ), one_hot_brand
                 ])
             )
