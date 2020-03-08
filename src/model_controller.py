@@ -105,7 +105,7 @@ def predict():
         'batch': batch,
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
-        'furtherHumid': pred[2] if len(pred) > 2 else 0,
+        'furthers': list(pred[2:]) if len(pred) > 2 else [],
         'time': time_,  # sample time
         'predTime': int(time.time() * 1000),  # predict time
         'version': '1.1',
@@ -131,6 +131,7 @@ if __name__ == '__main__':
     model_head.load(MODEL_SAVE_DIR + load_current_model('head'))
     one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
 
+    print('Current model: ', load_current_model('produce').split('/')[0])
     app.run(host='0.0.0.0')
 
 # for test use

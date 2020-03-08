@@ -29,6 +29,7 @@ FEATURE_RANGE = 50  # 特征选取的区间范围
 LABEL_RANGE = 10  # Label选取的区间范围
 SETTING_LAG = 20  # 设定值和实际值的时延
 REACTION_LAG = 10  # 实际值调整后，水分变化的时延
+FURTHER_STEP = 10  # 未来时刻出口水分采样步长
 
 MODEL_TRANSITION_CRITERION = 0.05
 TRANSITION_FEATURE_RANGE = 16  # Transition 特征选取的区间范围
@@ -164,7 +165,11 @@ def calc_integral(data_: np.array) -> np.array:
     return sum_ - (data_[:, 0, :] + data_[:, data_.shape[1] - 1, :]) / 2
 
 
-def calc_label(item_: pd.DataFrame, start: int, end: int, auxiliary_start: int or None = None, auxiliary_end: int or None = None) -> np.array:
+def calc_label(item_: pd.DataFrame,
+               start: int, end: int,
+               auxiliary_start: int or None = None,
+               auxiliary_end: int or None = None,
+               step: int or None = None) -> np.array:
     """
     calc label for each sample
     :param item_: sample data
@@ -172,11 +177,12 @@ def calc_label(item_: pd.DataFrame, start: int, end: int, auxiliary_start: int o
     :param end: the end time to calc label
     :param auxiliary_end: auxiliary humid start
     :param auxiliary_start: auxiliary humid end
+    :param step: split step
     :return: a array with exactly 2 number: temperature of region 1 and temperature of region 2
     """
     label_ = np.mean(item_[label_column].iloc[start: end].values, axis=0)
-    if auxiliary_start and auxiliary_end and auxiliary_start <= auxiliary_end:
-        auxiliary_ = np.mean(item_[auxiliary_column].iloc[auxiliary_start: auxiliary_end].values, axis=0)
+    if auxiliary_start and auxiliary_end and step and auxiliary_start <= auxiliary_end:
+        auxiliary_ = item_[auxiliary_column].values.ravel()[auxiliary_start:auxiliary_end: step]
         return np.concatenate([label_, auxiliary_])
     else:
         return label_
@@ -259,8 +265,9 @@ def generate_brand_transition_training_data(item_brand, brand_index: int, settin
                     item_batch,
                     adjust_start,
                     adjust_end,
-                    stable_start,
-                    stable_start + STABLE_WINDOWS_SIZE
+                    adjust_end,
+                    stable_start + STABLE_WINDOWS_SIZE,
+                    FURTHER_STEP
                 )
             )
 
@@ -351,8 +358,9 @@ def generate_brand_produce_training_data(item_brand, brand_index: int, setting: 
                     item_batch,
                     adjust_start,
                     adjust_end,
-                    stable_start,
-                    stable_start + STABLE_WINDOWS_SIZE
+                    adjust_end,
+                    stable_start + STABLE_WINDOWS_SIZE,
+                    FURTHER_STEP
                 )
             )
 
