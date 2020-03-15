@@ -58,9 +58,13 @@ class LRModel(BasicLRModel):
         if delta is None and mapping is None:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=6)
         elif mapping is None:
-            X_train, X_test, y_train, y_test, delta_train, delta_test = train_test_split(X, y, delta, test_size=test_size, random_state=6)
+            X_train, X_test, y_train, y_test, delta_train, delta_test = train_test_split(X, y, delta,
+                                                                                         test_size=test_size,
+                                                                                         random_state=6)
         elif delta is None:
-            X_train, X_test, y_train, y_test, mapping_train, mapping_test = train_test_split(X, y, mapping, test_size=test_size, random_state=6)
+            X_train, X_test, y_train, y_test, mapping_train, mapping_test = train_test_split(X, y, mapping,
+                                                                                             test_size=test_size,
+                                                                                             random_state=6)
         else:
             X_train, X_test, \
             y_train, y_test, \

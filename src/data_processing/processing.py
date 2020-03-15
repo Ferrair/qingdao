@@ -17,7 +17,7 @@ columns = [
     '筒壁2区温度实际值', '筒壁2区温度设定值', '罩压力'
 ]
 
-feature_column = ['出口水分差值', '出口水分设定值', '热风速度实际值',
+feature_column = ['出口水分差值', '热风速度实际值',
                   '入口水分', '罩压力', '筒壁1区温度实际值', '筒壁1区温度设定值',
                   '筒壁2区温度实际值', '筒壁2区温度设定值']
 
@@ -249,7 +249,7 @@ def generate_brand_transition_training_data(item_brand, brand_index: int, settin
                         adjust_start,
                         TRANSITION_FEATURE_RANGE,
                         TRANSITION_SPLIT_NUM
-                    ), auxiliary_, one_hot_brand
+                    ), auxiliary_, [setting], one_hot_brand
                 ])
             )
 
@@ -341,7 +341,7 @@ def generate_brand_produce_training_data(item_brand, brand_index: int, setting: 
                         adjust_start,
                         FEATURE_RANGE,
                         SPLIT_NUM
-                    ), auxiliary_, one_hot_brand
+                    ), auxiliary_, [setting], one_hot_brand
                 ])
             )
 

@@ -17,6 +17,16 @@ model_transition = LRModel()
 model_head = HeadModel(STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE)
 one_hot = None
 
+# TODO: not hard code here
+criterion = {'Txy###': 12.699999999999994,
+             'TG####A': 12.493271237066992,
+             'HSX###': 13.80000000000001,
+             'TH####A': 12.49285817787605,
+             'DQMr##': 13.799999999999997,
+             'ThQD##A': 12.5,
+             'HsxY##': 13.5,
+             'HR####': 12.8}
+
 
 def api_select_current_model_name():
     current_model_name = request.json['current_model_name']
@@ -119,7 +129,7 @@ def predict():
             logging.error(e)
             return jsonify(str(e))
         else:
-            features = np.concatenate([features, auxiliary_, one_hot[brand]])
+            features = np.concatenate([features, auxiliary_, [criterion[brand]], one_hot[brand]])
             pred = model_produce.predict(features)
     elif stage == 'transition':
         try:
@@ -128,7 +138,7 @@ def predict():
             logging.error(e)
             return jsonify(str(e))
         else:
-            features = np.concatenate([features, auxiliary_, one_hot[brand]])
+            features = np.concatenate([features, auxiliary_, [criterion[brand]], one_hot[brand]])
             pred = model_transition.predict(features)
     elif stage == 'head':
         pred = model_head.predict(brand, index)
