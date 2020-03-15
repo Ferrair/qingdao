@@ -17,9 +17,11 @@ columns = [
     '筒壁2区温度实际值', '筒壁2区温度设定值', '罩压力'
 ]
 
-feature_column = ['出口水分差值', '热风速度实际值', '入口水分', '罩压力', '筒壁1区温度实际值', '筒壁1区温度设定值', '筒壁2区温度实际值', '筒壁2区温度设定值']
+feature_column = ['出口水分差值', '出口水分设定值', '热风速度实际值',
+                  '入口水分', '罩压力', '筒壁1区温度实际值', '筒壁1区温度设定值',
+                  '筒壁2区温度实际值', '筒壁2区温度设定值']
+
 label_column = ['筒壁1区温度设定值', '筒壁2区温度设定值']
-auxiliary_column = ['出口水分']
 
 STABLE_WINDOWS_SIZE = 10  # 稳态的时长
 SPLIT_NUM = 10  # 特征选取分割区间的数量（需要被FEATURE_RANGE整除）
@@ -43,6 +45,8 @@ VERBOSE = True
 
 assert FEATURE_RANGE % SPLIT_NUM == 0, 'FEATURE_RANGE % SPLIT_NUM != 0'
 assert TRANSITION_FEATURE_RANGE % TRANSITION_SPLIT_NUM == 0, 'TRANSITION_FEATURE_RANGE % TRANSITION_SPLIT_NUM != 0'
+assert (REACTION_LAG + SETTING_LAG + STABLE_WINDOWS_SIZE) % FURTHER_STEP == 0, \
+    '(REACTION_LAG + SETTING_LAG + STABLE_WINDOWS_SIZE) % FURTHER_STEP != 0 '
 
 
 def read_data(filename: str) -> pd.DataFrame:
@@ -165,27 +169,15 @@ def calc_integral(data_: np.array) -> np.array:
     return sum_ - (data_[:, 0, :] + data_[:, data_.shape[1] - 1, :]) / 2
 
 
-def calc_label(item_: pd.DataFrame,
-               start: int, end: int,
-               auxiliary_start: int or None = None,
-               auxiliary_end: int or None = None,
-               step: int or None = None) -> np.array:
+def calc_label(item_: pd.DataFrame, start: int, end: int) -> np.array:
     """
     calc label for each sample
     :param item_: sample data
     :param start: the start time to calc label
     :param end: the end time to calc label
-    :param auxiliary_end: auxiliary humid start
-    :param auxiliary_start: auxiliary humid end
-    :param step: split step
     :return: a array with exactly 2 number: temperature of region 1 and temperature of region 2
     """
-    label_ = np.mean(item_[label_column].iloc[start: end].values, axis=0)
-    if auxiliary_start and auxiliary_end and step and auxiliary_start <= auxiliary_end:
-        auxiliary_ = item_[auxiliary_column].values.ravel()[auxiliary_start:auxiliary_end: step]
-        return np.concatenate([label_, auxiliary_])
-    else:
-        return label_
+    return np.mean(item_[label_column].iloc[start: end].values, axis=0)
 
 
 def calc_current(item_: pd.DataFrame, start: int) -> np.array:
@@ -248,6 +240,8 @@ def generate_brand_transition_training_data(item_brand, brand_index: int, settin
             adjust_start = adjust_end - LABEL_RANGE
 
             # store feature
+            auxiliary_ = item_batch['出口水分差值'].values.ravel()[
+                         adjust_end: stable_start + STABLE_WINDOWS_SIZE: FURTHER_STEP]
             brand_train_data.append(
                 np.concatenate([
                     calc_feature(
@@ -255,7 +249,7 @@ def generate_brand_transition_training_data(item_brand, brand_index: int, settin
                         adjust_start,
                         TRANSITION_FEATURE_RANGE,
                         TRANSITION_SPLIT_NUM
-                    ), one_hot_brand
+                    ), auxiliary_, one_hot_brand
                 ])
             )
 
@@ -264,10 +258,7 @@ def generate_brand_transition_training_data(item_brand, brand_index: int, settin
                 calc_label(
                     item_batch,
                     adjust_start,
-                    adjust_end,
-                    adjust_end,
-                    stable_start + STABLE_WINDOWS_SIZE,
-                    FURTHER_STEP
+                    adjust_end
                 )
             )
 
@@ -341,6 +332,8 @@ def generate_brand_produce_training_data(item_brand, brand_index: int, setting: 
             adjust_start = adjust_end - LABEL_RANGE
 
             # store feature
+            auxiliary_ = item_batch['出口水分差值'].values.ravel()[
+                         adjust_end: stable_start + STABLE_WINDOWS_SIZE: FURTHER_STEP]
             brand_train_data.append(
                 np.concatenate([
                     calc_feature(
@@ -348,7 +341,7 @@ def generate_brand_produce_training_data(item_brand, brand_index: int, setting: 
                         adjust_start,
                         FEATURE_RANGE,
                         SPLIT_NUM
-                    ), one_hot_brand
+                    ), auxiliary_, one_hot_brand
                 ])
             )
 
@@ -357,10 +350,7 @@ def generate_brand_produce_training_data(item_brand, brand_index: int, setting: 
                 calc_label(
                     item_batch,
                     adjust_start,
-                    adjust_end,
-                    adjust_end,
-                    stable_start + STABLE_WINDOWS_SIZE,
-                    FURTHER_STEP
+                    adjust_end
                 )
             )
 

@@ -1,3 +1,5 @@
+import logging
+
 from src.manager.model_manager import load_current_model
 from src.data_processing.processing import *
 from src.model.head import HeadModel
@@ -30,12 +32,21 @@ def train_val_model():
     one_hot = encode(list(data_per_brand.keys()))
 
     # Produce stage
-    X_produce, y_produce, delta_produce, mapping_produce = generate_all_training_data(data_per_brand, criterion, one_hot, 'produce')
+    X_produce, y_produce, delta_produce, mapping_produce = generate_all_training_data(data_per_brand,
+                                                                                      criterion,
+                                                                                      one_hot,
+                                                                                      'produce')
     metrics_produce = model_produce.train_validate(X_produce, y_produce, delta_produce, mapping_produce)
 
     # Transition stage
-    X_transition, y_transition, delta_transition, mapping_transition = generate_all_training_data(data_per_brand, criterion, one_hot, 'transition')
-    metrics_transition = model_transition.train_validate(X_transition, y_transition, delta_transition, mapping_transition)
+    X_transition, y_transition, delta_transition, mapping_transition = generate_all_training_data(data_per_brand,
+                                                                                                  criterion,
+                                                                                                  one_hot,
+                                                                                                  'transition')
+    metrics_transition = model_transition.train_validate(X_transition,
+                                                         y_transition,
+                                                         delta_transition,
+                                                         mapping_transition)
 
     # Head stage
     init_per_brand, stable_per_brand = generate_head_dict(data_per_brand, criterion)
@@ -66,11 +77,27 @@ def validate(data_per_batch: pd.DataFrame) -> np.array:
     return pred
 
 
+def get_auxiliary() -> list:
+    """
+    get auxiliary list in test phase
+    """
+    return [0] * int((REACTION_LAG + SETTING_LAG + STABLE_WINDOWS_SIZE) / FURTHER_STEP)
+
+
+def check_dim(current: int, required: int):
+    """
+    检查传入features的维度
+    """
+    if current != required:
+        raise Exception('len(features) wrong, excepted=' + str(required) + ' current=' + str(current))
+
+
 @app.route('/api/test')
 def test():
     return 'Ok'
 
 
+# noinspection DuplicatedCode
 @app.route('/api/predict', methods=["POST"])
 def predict():
     data = request.get_json()
@@ -80,19 +107,29 @@ def predict():
     stage = data['stage']
     brand = data['brand']
     features = data['features']
-    if brand not in one_hot.keys():
-        return jsonify('wrong batch')
+    auxiliary_ = get_auxiliary()
 
+    if brand not in one_hot.keys():
+        logging.info('our model cannot handle new brand: ' + brand)
+        return jsonify('our model cannot handle new brand: ' + brand)
     if stage == 'produce':
-        if len(features) != len(feature_column) * 5 * SPLIT_NUM:
-            raise Exception('len(features) wrong, excepted=' + str(len(feature_column) * 5 * SPLIT_NUM) + ' current=' + str(len(features)))
-        features = np.concatenate([features, one_hot[brand]])
-        pred = model_produce.predict(features)
+        try:
+            check_dim(len(features), len(feature_column) * 5 * SPLIT_NUM)
+        except Exception as e:
+            logging.error(e)
+            return jsonify(str(e))
+        else:
+            features = np.concatenate([features, auxiliary_, one_hot[brand]])
+            pred = model_produce.predict(features)
     elif stage == 'transition':
-        if len(features) != len(feature_column) * 5 * TRANSITION_SPLIT_NUM:
-            raise Exception('len(features) wrong, excepted=' + str(len(feature_column) * 5 * SPLIT_NUM) + ' current=' + str(len(features)))
-        features = np.concatenate([features, one_hot[brand]])
-        pred = model_transition.predict(features)
+        try:
+            check_dim(len(features), len(feature_column) * 5 * TRANSITION_SPLIT_NUM)
+        except Exception as e:
+            logging.error(e)
+            return jsonify(str(e))
+        else:
+            features = np.concatenate([features, auxiliary_, one_hot[brand]])
+            pred = model_transition.predict(features)
     elif stage == 'head':
         pred = model_head.predict(brand, index)
     else:
@@ -105,10 +142,9 @@ def predict():
         'batch': batch,
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
-        'furthers': list(pred[2:]) if len(pred) > 2 else [],
         'time': time_,  # sample time
         'predTime': int(time.time() * 1000),  # predict time
-        'version': '1.1',
+        'version': '1.2',
         'deviceStatus': 'deviceStatus'
     })
 
@@ -119,7 +155,8 @@ def api_load_model_config():
     if stage == 'produce':
         return jsonify({'window_size': FEATURE_RANGE, 'block_size': int(FEATURE_RANGE / SPLIT_NUM)})
     elif stage == 'transition':
-        return jsonify({'window_size': TRANSITION_FEATURE_RANGE, 'block_size': int(TRANSITION_FEATURE_RANGE / TRANSITION_SPLIT_NUM)})
+        return jsonify({'window_size': TRANSITION_FEATURE_RANGE,
+                        'block_size': int(TRANSITION_FEATURE_RANGE / TRANSITION_SPLIT_NUM)})
     else:
         raise Exception('param error')
 
