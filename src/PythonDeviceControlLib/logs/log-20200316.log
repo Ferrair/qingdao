@@ -1,0 +1,16 @@
+[2020-03-16 14:19:30,420] - root - INFO - [
+    {
+        "Address": "test.d1.t2", 
+        "DataType": "float", 
+        "Value": "11"
+    }
+]
+[2020-03-16 14:19:34,431] - root - ERROR - REST API Failed:(<class 'urllib2.URLError'>, URLError(error(10061, 'No connection could be made because the target machine actively refused it'),), <traceback object at 0x00000000040DD1C8>)
+[2020-03-16 14:19:55,460] - root - INFO - [
+    {
+        "Address": "test.d1.t2", 
+        "DataType": "float", 
+        "Value": "11"
+    }
+]
+[2020-03-16 14:19:56,075] - root - INFO - [{"Address":"test.d1.t2","IsSetSucessful":false,"Message":"SetPLC failed!"}]

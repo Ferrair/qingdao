@@ -1,12 +1,15 @@
 import logging
 
+from src.PythonDeviceControlLib.CommandHanlder import CommandHandler
+from src.PythonDeviceControlLib.DeviceCommands import DeviceCommandTypes
 from src.manager.model_manager import load_current_model
 from src.data_processing.processing import *
 from src.model.head import HeadModel
 from src.model.lr_model import LRModel
 from flask import Flask, jsonify, request
 import pandas as pd
-from src.config.config import MODEL_SAVE_DIR
+from src.config.config import MODEL_SAVE_DIR, CONTROL_URL
+from src.config import config
 from src.utils.util import *
 
 app = Flask(__name__)
@@ -104,12 +107,13 @@ def check_dim(current: int, required: int):
 
 @app.route('/api/test')
 def test():
-    return 'Ok'
+    return config.ENV
 
 
 # noinspection DuplicatedCode
 @app.route('/api/predict', methods=["POST"])
 def predict():
+    # TODO add logs
     data = request.get_json()
     time_ = data['time']
     batch = data['batch']
@@ -146,17 +150,35 @@ def predict():
         raise Exception('param error')
 
     pred = pred.ravel()
+    if config.ENV == 'prod':
+        # res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_ALL, [str(pred[0]), str(pred[1])])
+        # print(res)
+        pass
+    else:
+        res1 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T1, str(pred[0]))
+        res2 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T2, str(pred[1]))
+        logging.info(res1)
+        logging.info(res2)
 
-    return jsonify({
-        'brand': brand,
-        'batch': batch,
-        'tempRegion1': pred[0],
-        'tempRegion2': pred[1],
-        'time': time_,  # sample time
-        'predTime': int(time.time() * 1000),  # predict time
-        'version': '1.2',
-        'deviceStatus': 'deviceStatus'
-    })
+    # return jsonify({
+    #     'brand': brand,
+    #     'batch': batch,
+    #     'tempRegion1': pred[0],
+    #     'tempRegion2': pred[1],
+    #     'time': time_,  # sample time
+    #     'predTime': int(time.time() * 1000),  # predict time
+    #     'version': '1.2',
+    #     'deviceStatus': 'deviceStatus'
+    # })
+
+
+@app.route('/api/change_env')
+def change_env():
+    env = request.args.get("env")
+    if env in ['prod', 'test']:
+        config.ENV = env
+        return env
+    return 'Fail'
 
 
 @app.route('/api/load_model_config')
@@ -177,7 +199,7 @@ if __name__ == '__main__':
     model_transition.load(MODEL_SAVE_DIR + load_current_model('transition'))
     model_head.load(MODEL_SAVE_DIR + load_current_model('head'))
     one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
-
+    handler = CommandHandler(CONTROL_URL)
     print('Current model: ', load_current_model('produce').split('/')[0])
     app.run(host='0.0.0.0')
 
