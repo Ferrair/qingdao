@@ -11,6 +11,7 @@ import pandas as pd
 from src.config.config import MODEL_SAVE_DIR, CONTROL_URL
 from src.config import config
 from src.utils.util import *
+import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -19,6 +20,7 @@ model_produce = LRModel()
 model_transition = LRModel()
 model_head = HeadModel(STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE)
 one_hot = None
+previous_value = dict()
 
 # TODO: not hard code here
 criterion = {'Txy###': 12.699999999999994,
@@ -151,25 +153,53 @@ def predict():
 
     pred = pred.ravel()
     if config.ENV == 'prod':
+        # roll_back = False
         # res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_ALL, [str(pred[0]), str(pred[1])])
-        # print(res)
+        # res = json.loads(res.decode())
+        # for r in res:
+        #     roll_back = roll_back or not r['IsSetSuccessful']
+        #     if r['Address'] == '5H.5H.LD5_KL2226_TT1St andardTemp1':
+        #         previous_value['T1'] = r['PreviousValue']
+        #     elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
+        #         previous_value['T2'] = r['PreviousValue']
+        #
+        # if roll_back:
+        #     res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_RESET_ALL, [str(previous_value['T1']), str(previous_value['T2'])])
         pass
     else:
-        res1 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T1, str(pred[0]))
-        res2 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T2, str(pred[1]))
+        roll_back = False
+        res1 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T1, [str(pred[0])])
+        res2 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T2, [str(pred[1])])
+        r1 = json.loads(res1.decode())
+        r2 = json.loads(res2.decode())
+        for r in r1:
+            roll_back = roll_back or not r['IsSetSuccessful']
+            if r['Address'] == 'test.d1.t1':
+                previous_value['T1'] = r['PreviousValue']
+
+        for r in r2:
+            roll_back = roll_back or not r['IsSetSuccessful']
+            if r['Address'] == 'test.d1.t2':
+                previous_value['T2'] = r['PreviousValue']
+
+        if roll_back:
+            res1 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T1, [str(previous_value['T1'])])
+            res2 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T2, [str(previous_value['T2'])])
+
+        logging.info(previous_value)
         logging.info(res1)
         logging.info(res2)
 
-    # return jsonify({
-    #     'brand': brand,
-    #     'batch': batch,
-    #     'tempRegion1': pred[0],
-    #     'tempRegion2': pred[1],
-    #     'time': time_,  # sample time
-    #     'predTime': int(time.time() * 1000),  # predict time
-    #     'version': '1.2',
-    #     'deviceStatus': 'deviceStatus'
-    # })
+    return jsonify({
+        'brand': brand,
+        'batch': batch,
+        'tempRegion1': pred[0],
+        'tempRegion2': pred[1],
+        'time': time_,  # sample time
+        'predTime': int(time.time() * 1000),  # predict time
+        'version': '1.2',
+        'deviceStatus': 'deviceStatus'
+    })
 
 
 @app.route('/api/change_env')
