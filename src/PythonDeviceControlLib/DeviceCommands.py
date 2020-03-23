@@ -77,7 +77,7 @@ class DeviceCommandGenerator:
         self.Set5KTempAll = [
             PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_1", "float", "0"),
             PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_2", "float", "0"),
-            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_MAN", "float", "1"),
+            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_MAN", "Boolean", "True"),
             PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "0"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp1", "float", "{0}"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp2", "float", "{1}")
@@ -85,7 +85,7 @@ class DeviceCommandGenerator:
 
         self.ReSet5KTempAll = [
             PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "0"),
-            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_MAN", "float", "0"),
+            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_AUTO", "Boolean", "True"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp1", "float", "{0}"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp2", "float", "{1}"),
             PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_2", "float", "1"),
