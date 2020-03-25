@@ -157,6 +157,7 @@ def predict():
             roll_back = False
             res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_ALL, [str(pred[0]), str(pred[1])])
             res = json.loads(res.decode())
+            logging.info(res)
             for r in res:
                 roll_back = roll_back or not r['IsSetSuccessful']
                 if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
@@ -169,33 +170,29 @@ def predict():
                     DeviceCommandTypes.ML_5K_HS_TB_WD_RESET_ALL,
                     [str(previous_value['T1']), str(previous_value['T2'])]
                 )
+                logging.info(res)
         except Exception as e:
             logging.error(e)
             return e
     else:
         try:
             roll_back = False
-            res1 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T1, [str(pred[0])])
-            res2 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T2, [str(pred[1])])
-            r1 = json.loads(res1.decode())
-            r2 = json.loads(res2.decode())
-            for r in r1:
+            res = handler.RunPLCCommand(DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL, [str(pred[0]), str(pred[1])])
+            res = json.loads(res.decode())
+            logging.info(res)
+            for r in res:
                 roll_back = roll_back or not r['IsSetSuccessful']
-                if r['Address'] == 'test.d1.t1':
+                if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
                     previous_value['T1'] = r['PreviousValue']
-
-            for r in r2:
-                roll_back = roll_back or not r['IsSetSuccessful']
-                if r['Address'] == 'test.d1.t2':
+                elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
                     previous_value['T2'] = r['PreviousValue']
 
             if roll_back:
-                res1 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T1, [str(previous_value['T1'])])
-                res2 = handler.RunPLCCommand(DeviceCommandTypes.SIM_TEST_D1_T2, [str(previous_value['T2'])])
-
-            logging.info(previous_value)
-            logging.info(res1)
-            logging.info(res2)
+                res = handler.RunPLCCommand(
+                    DeviceCommandTypes.ML_5H_5H_LD5_TEST_RESET_ALL,
+                    [str(previous_value['T1']), str(previous_value['T2'])]
+                )
+                logging.info(res)
         except Exception as e:
             logging.error(e)
             return e
@@ -219,11 +216,25 @@ def reset():
     T2 = data['T2']
 
     res = handler.RunPLCCommand(
-        DeviceCommandTypes.ML_5K_HS_TB_WD_RESET_ALL,
+        DeviceCommandTypes.ML_5H_5H_LD5_TEST_RESET_ALL,
         [str(T1), str(T2)]
     )
     logging.info(res)
-    return 'Reset OK'
+    return res
+
+
+@app.route('/api/set', methods=["POST"])
+def set_():
+    data = request.get_json()
+    T1 = data['T1']
+    T2 = data['T2']
+
+    res = handler.RunPLCCommand(
+        DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL,
+        [str(T1), str(T2)]
+    )
+    logging.info(res)
+    return res
 
 
 @app.route('/api/change_env')

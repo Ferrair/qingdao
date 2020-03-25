@@ -10,6 +10,8 @@ class DeviceCommandTypes(Enum):
     SIM_TEST_D1_T1 = 2  # 测试点位1,#ML
     SIM_TEST_D1_T2 = 3  # 测试点位2,#ML
     SIM_TEST_D1_T4 = 4  # 测试点位3,#APP
+    ML_5H_5H_LD5_TEST_SET_ALL = 5  # 微软测试写入滚筒区域1\2温度设定
+    ML_5H_5H_LD5_TEST_RESET_ALL = 6  # 微软测试写入滚筒区域1\2温度恢复
 
     # //ML_5K_HS_TB_WD_1, //2.1.	设置五千线烘丝机筒壁1区温度设定值
     # //ML_5K_HS_TB_WD_2,//2.2.	设置五千线烘丝机筒壁2区温度设定值
@@ -84,7 +86,7 @@ class DeviceCommandGenerator:
         ]
 
         self.ReSet5KTempAll = [
-            PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "0"),
+            PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "1"),
             PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_AUTO", "Boolean", "True"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp1", "float", "{0}"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp2", "float", "{1}"),
@@ -104,6 +106,16 @@ class DeviceCommandGenerator:
             PLCComand("test.d1.t4", "float", "{0}")
         ]
 
+        self.SetLD5Test = [
+            PLCComand("5H.5H.LD5_test1", "float", "{0}"),
+            PLCComand("5H.5H.LD5_test2", "float", "{1}")
+        ]
+
+        self.ReSetLD5Test = [
+            PLCComand("5H.5H.LD5_test1", "float", "{0}"),
+            PLCComand("5H.5H.LD5_test2", "float", "{1}")
+        ]
+
     def Get_Command(self, commandtype):
         commandbody = ""
 
@@ -121,6 +133,12 @@ class DeviceCommandGenerator:
 
         elif commandtype == DeviceCommandTypes.SIM_TEST_D1_T4:
             commandbody = PLCComandList(self.SetSIMTestD1T4).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL:
+            commandbody = PLCComandList(self.SetLD5Test).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5H_5H_LD5_TEST_RESET_ALL:
+            commandbody = PLCComandList(self.ReSetLD5Test).toJSON()
 
         else:
             commandbody = ""
