@@ -158,6 +158,7 @@ def predict():
             res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_ALL, [str(pred[0]), str(pred[1])])
             res = json.loads(res.decode())
             logging.info(res)
+            logging_in_disk(res)
             for r in res:
                 roll_back = roll_back or not r['IsSetSuccessful']
                 if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
@@ -171,8 +172,10 @@ def predict():
                     [str(previous_value['T1']), str(previous_value['T2'])]
                 )
                 logging.info(res)
+                logging_in_disk(res)
         except Exception as e:
             logging.error(e)
+            logging_in_disk(e)
             return e
     else:
         try:
@@ -180,6 +183,7 @@ def predict():
             res = handler.RunPLCCommand(DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL, [str(pred[0]), str(pred[1])])
             res = json.loads(res.decode())
             logging.info(res)
+            logging_in_disk(res)
             for r in res:
                 roll_back = roll_back or not r['IsSetSuccessful']
                 if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
@@ -193,11 +197,13 @@ def predict():
                     [str(previous_value['T1']), str(previous_value['T2'])]
                 )
                 logging.info(res)
+                logging_in_disk(res)
         except Exception as e:
             logging.error(e)
+            logging_in_disk(e)
             return e
 
-    return jsonify({
+    result = jsonify({
         'brand': brand,
         'batch': batch,
         'tempRegion1': pred[0],
@@ -207,6 +213,26 @@ def predict():
         'version': '1.2',
         'deviceStatus': 'deviceStatus'
     })
+    logging_pred_in_disk(result)
+    return result
+
+
+def logging_pred_in_disk(s):
+    """
+    写Logs，只和预测有关都Pred
+    """
+    with open('../logs/pred_log.txt', 'a+') as f:
+        f.write(str(s))
+        f.write('------------\n')
+
+
+def logging_in_disk(s):
+    """
+    写Logs，所有的Logs都写到Disk里面去了
+    """
+    with open('../logs/all_log.txt', 'a+') as f:
+        f.write(str(s))
+        f.write('------------\n')
 
 
 @app.route('/api/reset', methods=["POST"])
