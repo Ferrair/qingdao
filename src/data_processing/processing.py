@@ -132,7 +132,8 @@ def calc_feature(item_: pd.DataFrame, feature_end: int, feature_range: int, spli
     # shape = (SPLIT_NUM, FEATURE_RANGE / SPLIT_NUM, FEATURE_NUM)
     feature_slice = np.array(np.vsplit(feature_slice, split_num))
 
-    # shape = (*, SPLIT_NUM, FEATURE_NUM)
+    # shape = (5, SPLIT_NUM, FEATURE_NUM)
+    # 比如，feature前80个都是均值，在这80个里面，被分为了SPLIT_NUM段，每一段都是FEATURE_NUM个features
     feature = np.concatenate([
         np.mean(feature_slice, axis=1).ravel(),
         np.std(feature_slice, axis=1).ravel(),
@@ -441,7 +442,8 @@ def generate_head_dict(data_per_brand: dict, criterion: dict, round_: bool = Tru
     return init_per_brand, stable_per_brand
 
 
-def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: dict, stage: str) -> Tuple[np.array, np.array, np.array, np.array]:
+def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: dict, stage: str) -> Tuple[
+    np.array, np.array, np.array, np.array]:
     """
     generate training data and label for all brand
     :param data_per_brand: all brand data
@@ -476,7 +478,8 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: d
 
             if VERBOSE:
                 print('{}: len={}, time={}s'.format(brand, len(brand_train_data), (datetime.now() - start).seconds))
-        return concatenate(train_data_list), concatenate(train_label_list), concatenate(delta_list), concatenate(mapping_list)
+        return concatenate(train_data_list), concatenate(train_label_list), concatenate(delta_list), concatenate(
+            mapping_list)
 
     elif stage == 'transition':
         for brand_index, brand in enumerate(data_per_brand):
@@ -495,7 +498,8 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: d
 
             if VERBOSE:
                 print('{}: len={}, time={}s'.format(brand, len(brand_train_data), (datetime.now() - start).seconds))
-        return concatenate(train_data_list), concatenate(train_label_list), concatenate(delta_list), concatenate(mapping_list)
+        return concatenate(train_data_list), concatenate(train_label_list), concatenate(delta_list), concatenate(
+            mapping_list)
     else:
         raise Exception('stage must in [transition, produce], now is ' + str(stage))
 
@@ -587,21 +591,42 @@ def generate_validation_data(data_per_batch: pd.DataFrame, stage: str) -> Tuple[
         raise Exception('stage must in [transition, produce], now is ' + str(stage))
 
 
-def clip(pred: np.array, min_1: float, max_1: float, min_2: float, max_2: float) -> np.array:
+def clip(pred: np.array, criterion_1: float, criterion_2: float) -> np.array:
     """
     clip the predicted to avoid over-estimated
     :param pred: predicted values
-    :param min_1: min for region 1
-    :param max_1: max for region 1
-    :param min_2: min for region 2
-    :param max_2: max for region 1
+    :param criterion_1: 一区温度标准
+    :param criterion_2: 二区温度标准
     :return: clipped values
     """
     if len(pred) is not 2:
         raise Exception('Predicted value MUST have 2 value')
+    bound = 3.5
+    pred[0] = np.clip(pred[0], criterion_1 - bound, criterion_1 + bound)
+    pred[1] = np.clip(pred[1], criterion_2 - bound, criterion_2 + bound)
+    return pred
 
-    pred[0] = np.clip(pred[0], min_1, max_1)
-    pred[1] = np.clip(pred[1], min_2, max_2)
+
+def adjust(pred: list, originals: list) -> list:
+    """
+    简单粗暴加个惩罚项，出口水分连续5个点超过了某个阈值，就加个惩罚项纠正下。
+    :param pred:
+    :param originals: 出口水分的差值。
+    :return:
+    """
+    if len(originals) == 0:
+        return pred
+    if len(originals) != FEATURE_RANGE:
+        return pred
+    originalHumid = originals[-5:]
+    originalHumid = np.array(originalHumid)
+    ratio = 0.6
+    if np.all(originalHumid > 0.05):
+        pred[0] += np.sum(originalHumid) * ratio
+        pred[1] += np.sum(originalHumid) * ratio
+    if np.all(originalHumid < 0.05):
+        pred[0] -= np.sum(originalHumid) * ratio
+        pred[1] -= np.sum(originalHumid) * ratio
     return pred
 
 

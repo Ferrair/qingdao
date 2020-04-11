@@ -7,11 +7,19 @@ from src.PythonDeviceControlLib.DataTypes import PLCComand, PLCComandList
 class DeviceCommandTypes(Enum):
     ML_5K_HS_TB_WD_SET_ALL = 0  # 设置五千线烘丝机筒壁1区、2区温度设定值
     ML_5K_HS_TB_WD_RESET_ALL = 1  # 恢复五千线烘丝机筒壁1区、2区温度设定值
-    SIM_TEST_D1_T1 = 2  # 测试点位1,#ML
-    SIM_TEST_D1_T2 = 3  # 测试点位2,#ML
-    SIM_TEST_D1_T4 = 4  # 测试点位3,#APP
-    ML_5H_5H_LD5_TEST_SET_ALL = 5  # 微软测试写入滚筒区域1\2温度设定
-    ML_5H_5H_LD5_TEST_RESET_ALL = 6  # 微软测试写入滚筒区域1\2温度恢复
+
+    ML_5K_HS_TB_WD_READ_HMI = 2  # 设置五千线烘丝机筒壁1区、2区温度,读取HMI判断
+    ML_5K_HS_TB_WD_READ_TEMPS = 3  # 读取当前五千线烘丝机筒壁1区、2区温度
+    ML_5K_HS_TB_WD_SET_TEMPS = 4  # 设置当前五千线烘丝机筒壁1区、2区温度,不执行切换
+    ML_5K_HS_TB_WD_SET_TIC_COS = 5  # 设置当前五千线烘丝机筒壁1区、2区正向控制除水
+    ML_5K_HS_TB_WD_SWITCH_MAN = 6  # 设置五千线烘丝机筒壁1区、2区温度,切换到Hauni手工
+    ML_5K_HS_TB_WD_SWITCH_AUTO = 7  # 设置五千线烘丝机筒壁1区、2区温度,切换到Hauni自动
+
+    SIM_TEST_D1_T1 = 8  # 测试点位1,#ML
+    SIM_TEST_D1_T2 = 9  # 测试点位2,#ML
+    SIM_TEST_D1_T4 = 10  # 测试点位3,#APP
+    ML_5H_5H_LD5_TEST_SET_ALL = 11  # 微软测试写入滚筒区域1\2温度设定
+    ML_5H_5H_LD5_TEST_RESET_ALL = 12  # 微软测试写入滚筒区域1\2温度恢复
 
     # //ML_5K_HS_TB_WD_1, //2.1.	设置五千线烘丝机筒壁1区温度设定值
     # //ML_5K_HS_TB_WD_2,//2.2.	设置五千线烘丝机筒壁2区温度设定值
@@ -79,7 +87,8 @@ class DeviceCommandGenerator:
         self.Set5KTempAll = [
             PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_1", "float", "0"),
             PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_2", "float", "0"),
-            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_MAN", "Boolean", "True"),
+            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_MAN", "Boolean", "True", "5H.5H.LD5_KL2226_PID04_OPERATE1_HMI",
+                      "Boolean", "True"),
             PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "0"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp1", "float", "{0}"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp2", "float", "{1}")
@@ -87,11 +96,43 @@ class DeviceCommandGenerator:
 
         self.ReSet5KTempAll = [
             PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "1"),
-            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_AUTO", "Boolean", "True"),
+            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_AUTO", "Boolean", "True", "5H.5H.LD5_KL2226_PID04_OPERATE1_HMI",
+                      "Boolean", "False"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp1", "float", "{0}"),
             PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp2", "float", "{1}"),
             PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_2", "float", "1"),
             PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_1", "float", "1")
+        ]
+
+        self.Read5KTBWDTempHMI = [
+            PLCComand("", "", "", "5H.5H.LD5_KL2226_PID04_OPERATE1_HMI", "Boolean", "")
+        ]
+
+        self.Read5KTBWDTemps = [
+            PLCComand("", "", "", "5H.5H.LD5_KL2226_TT1StandardTemp1", "float", ""),
+            PLCComand("", "", "", "5H.5H.LD5_KL2226_TT1StandardTemp2", "float", "")
+        ]
+
+        self.Set5KTBWDTemps = [
+            PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp1", "float", "{0}"),
+            PLCComand("5H.5H.LD5_KL2226_TT1StandardTemp2", "float", "{1}")
+        ]
+
+        self.Set5KTBWDTTICCOS = [
+            PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_1", "float", "{0}"),
+            PLCComand("5H.5H.LD5_KL2226_TIC_CO_PP_2", "float", "{1}")
+        ]
+
+        self.Set5KTBWDSwitchMan = [
+            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_MAN", "Boolean", "True", "5H.5H.LD5_KL2226_PID04_OPERATE1_HMI",
+                      "Boolean", "True"),
+            PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "0")
+        ]
+
+        self.Set5KTBWDSwitchAuto = [
+            PLCComand("5H.5H.LD5_KL2226_PID04_CV", "float", "1"),
+            PLCComand("5H.5H.LD5_KL2226_PID04_OPERATE1_AUTO", "Boolean", "True", "5H.5H.LD5_KL2226_PID04_OPERATE1_HMI",
+                      "Boolean", "False")
         ]
 
         self.SetSIMTestD1T1 = [
@@ -124,6 +165,25 @@ class DeviceCommandGenerator:
 
         elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_RESET_ALL:
             commandbody = PLCComandList(self.ReSet5KTempAll).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_READ_HMI:
+            commandbody = PLCComandList(self.Read5KTBWDTempHMI).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_READ_TEMPS:
+            commandbody = PLCComandList(self.Read5KTBWDTemps).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SET_TEMPS:
+            commandbody = PLCComandList(self.Set5KTBWDTemps).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SET_TIC_COS:
+            commandbody = PLCComandList(self.Set5KTBWDTTICCOS).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SWITCH_MAN:
+            commandbody = PLCComandList(self.Set5KTBWDSwitchMan).toJSON()
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SWITCH_AUTO:
+            commandbody = PLCComandList(self.Set5KTBWDSwitchAuto).toJSON()
+
 
         elif commandtype == DeviceCommandTypes.SIM_TEST_D1_T1:
             commandbody = PLCComandList(self.SetSIMTestD1T1).toJSON()

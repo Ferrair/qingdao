@@ -4,10 +4,13 @@ import json
 
 
 class PLCComand:
-    def __init__(self, address, datatype, value):
+    def __init__(self, address, datatype, value, checkaddress="", checkdatatype="", checkvalue=""):
         self.Address = address
         self.DataType = datatype
         self.Value = value
+        self.CheckAddress = checkaddress
+        self.CheckDataType = checkdatatype
+        self.CheckValue = checkvalue
 
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
@@ -25,10 +28,12 @@ class PLCComandList:
 
 
 class PLCResults:
-    def __init__(self, address, issetsucessful, value):
+    def __init__(self, address, issetsucessful, value, previousvalue, datatype):
         self.Address = address
         self.IsSetSucessful = issetsucessful
         self.Message = value
+        self.PreviousValue = previousvalue
+        self.DataType = datatype
 
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)

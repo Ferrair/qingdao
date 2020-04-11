@@ -31,6 +31,22 @@ criterion = {'Txy###': 12.699999999999994,
              'ThQD##A': 12.5,
              'HsxY##': 13.5,
              'HR####': 12.8}
+temp1_criterion = {'Txy###': 135,
+                   'TG####A': 140,
+                   'HSX###': 135,
+                   'TH####A': 135,
+                   'DQMr##': 130,
+                   'ThQD##A': 135,
+                   'HsxY##': 127,
+                   'HR####': 145}
+temp2_criterion = {'Txy###': 120,
+                   'TG####A': 125,
+                   'HSX###': 135,
+                   'TH####A': 121,
+                   'DQMr##': 130,
+                   'ThQD##A': 120,
+                   'HsxY##': 127,
+                   'HR####': 145}
 
 
 def api_select_current_model_name():
@@ -112,18 +128,29 @@ def test():
     return config.ENV
 
 
-# noinspection DuplicatedCode
 @app.route('/api/predict', methods=["POST"])
 def predict():
-    # TODO add logs
-    data = request.get_json()
-    time_ = data['time']
-    batch = data['batch']
-    index = data['index']
-    stage = data['stage']
-    brand = data['brand']
-    features = data['features']
-    auxiliary_ = get_auxiliary()
+    try:
+        data = request.get_json()
+        keys = data.keys()
+        if 'time' not in keys or 'batch' not in keys or 'index' not in keys or 'stage' not in keys or 'brand' not in keys and 'features' not in keys:
+            logging.error('Param Error')
+            return 'Error'
+
+        time_ = data['time']
+        batch = data['batch']
+        index = data['index']
+        stage = data['stage']
+        brand = data['brand']
+        features = data['features']
+        originals = []
+        if 'originals' in keys:
+            originals = data['originals']
+
+        auxiliary_ = get_auxiliary()
+    except Exception as e:
+        logging.error(e)
+        return
 
     if brand not in one_hot.keys():
         logging.info('our model cannot handle new brand: ' + brand)
@@ -152,6 +179,9 @@ def predict():
         raise Exception('param error')
 
     pred = pred.ravel()
+    pred = adjust(pred, originals)
+    pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+
     if config.ENV == 'prod':
         try:
             roll_back = False
@@ -176,7 +206,7 @@ def predict():
         except Exception as e:
             logging.error(e)
             logging_in_disk(e)
-            return e
+            return 'Error'
     else:
         try:
             roll_back = False
@@ -201,9 +231,9 @@ def predict():
         except Exception as e:
             logging.error(e)
             logging_in_disk(e)
-            return e
+            return 'Error'
 
-    result = jsonify({
+    result = {
         'brand': brand,
         'batch': batch,
         'tempRegion1': pred[0],
@@ -212,9 +242,9 @@ def predict():
         'predTime': int(time.time() * 1000),  # predict time
         'version': '1.2',
         'deviceStatus': 'deviceStatus'
-    })
+    }
     logging_pred_in_disk(result)
-    return result
+    return jsonify(result)
 
 
 def logging_pred_in_disk(s):
@@ -222,8 +252,8 @@ def logging_pred_in_disk(s):
     写Logs，只和预测有关都Pred
     """
     with open('../logs/pred_log.txt', 'a+') as f:
-        f.write(str(s))
-        f.write('------------\n')
+        f.write(str(get_current_time()) + ' ---- ' + str(s))
+        f.write('\n')
 
 
 def logging_in_disk(s):
@@ -231,8 +261,8 @@ def logging_in_disk(s):
     写Logs，所有的Logs都写到Disk里面去了
     """
     with open('../logs/all_log.txt', 'a+') as f:
-        f.write(str(s))
-        f.write('------------\n')
+        f.write(str(get_current_time()) + ' ---- ' + str(s))
+        f.write('\n')
 
 
 @app.route('/api/reset', methods=["POST"])

@@ -25,6 +25,10 @@ class CommandHandler:
         rtval = self.ExecuteRestApi(rtval)
         return rtval
 
+    def RunPLCCommand2(self, command):
+        rtval = self.ExecuteRestApi(command)
+        return rtval
+
     def RunPLCCommand(self, commandtype, args):
         rtval = ""
         generator = DeviceCommandGenerator()
@@ -34,6 +38,24 @@ class CommandHandler:
             rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
 
         elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_RESET_ALL and length == 2:
+            rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_READ_HMI:
+            rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_READ_TEMPS:
+            rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SET_TEMPS and length == 2:
+            rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SET_TIC_COS and length == 2:
+            rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SWITCH_MAN:
+            rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
+
+        elif commandtype == DeviceCommandTypes.ML_5K_HS_TB_WD_SWITCH_AUTO:
             rtval = self.FormantAndRunCommand(generator.Get_Command(commandtype), args)
 
         elif commandtype == DeviceCommandTypes.SIM_TEST_D1_T1 and length == 1:
@@ -79,4 +101,22 @@ if __name__ == '__main__':
     print(res)
 
     res = handler.RunPLCCommand(DeviceCommandTypes.ML_5H_5H_LD5_TEST_RESET_ALL, ["110", "120"])
+    print(res)
+
+    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_READ_HMI, [])
+    print(res)
+
+    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_READ_TEMPS, [])
+    print(res)
+
+    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_TEMPS, ["110", "120"])
+    print(res)
+
+    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_TIC_COS, ["0", "0"])
+    print(res)
+
+    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SWITCH_MAN, [])
+    print(res)
+
+    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SWITCH_AUTO, [])
     print(res)
