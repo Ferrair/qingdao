@@ -137,6 +137,7 @@ def predict():
             logging.error('Param Error')
             return 'Error'
 
+        storm_time = int(time.time() * 1000)
         time_ = data['time']
         batch = data['batch']
         index = data['index']
@@ -144,8 +145,11 @@ def predict():
         brand = data['brand']
         features = data['features']
         originals = []
+        device_status = ''
         if 'originals' in keys:
             originals = data['originals']
+        if 'device_status' in keys:
+            device_status = data['device_status']
 
         auxiliary_ = get_auxiliary()
     except Exception as e:
@@ -181,6 +185,7 @@ def predict():
     pred = pred.ravel()
     pred = adjust(pred, originals)
     pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+    pred_time = int(time.time() * 1000)
 
     if config.ENV == 'prod':
         try:
@@ -239,9 +244,11 @@ def predict():
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
         'time': time_,  # sample time
-        'predTime': int(time.time() * 1000),  # predict time
-        'version': '1.2',
-        'deviceStatus': 'deviceStatus'
+        'storm_time': storm_time,  # 数据从Storm过来的时间
+        'pred_time': pred_time,  # 预测完成的时间
+        'plc_time': int(time.time() * 1000),  # call plc返回后的的时间
+        'device_status': device_status,
+        'version': '1.2'
     }
     logging_pred_in_disk(result)
     return jsonify(result)
@@ -249,20 +256,18 @@ def predict():
 
 def logging_pred_in_disk(s):
     """
-    写Logs，只和预测有关都Pred
+    写Logs，只写预测的结果
     """
-    with open('../logs/pred_log.txt', 'a+') as f:
-        f.write(str(get_current_time()) + ' ---- ' + str(s))
-        f.write('\n')
+    with open('../logs/pred_log.txt', 'a', buffering=1024 * 10) as f:
+        f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
 
 
 def logging_in_disk(s):
     """
     写Logs，所有的Logs都写到Disk里面去了
     """
-    with open('../logs/all_log.txt', 'a+') as f:
-        f.write(str(get_current_time()) + ' ---- ' + str(s))
-        f.write('\n')
+    with open('../logs/all_log.txt', 'a', buffering=1024 * 10) as f:
+        f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
 
 
 @app.route('/api/reset', methods=["POST"])
