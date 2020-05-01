@@ -8,8 +8,7 @@ from src.model.head import HeadModel
 from src.model.lr_model import LRModel
 from flask import Flask, jsonify, request
 import pandas as pd
-from src.config.config import MODEL_SAVE_DIR, CONTROL_URL
-from src.config import config
+from src.config.config import MODEL_SAVE_DIR, CONTROL_URL, Environment
 from src.utils.util import *
 import json
 
@@ -21,6 +20,7 @@ model_transition = LRModel()
 model_head = HeadModel(STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE)
 one_hot = None
 previous_value = dict()
+environment = None
 
 # TODO: not hard code here
 criterion = {'Txy###': 12.699999999999994,
@@ -123,11 +123,6 @@ def check_dim(current: int, required: int):
         raise Exception('len(features) wrong, excepted=' + str(required) + ' current=' + str(current))
 
 
-@app.route('/api/test')
-def test():
-    return config.ENV
-
-
 @app.route('/api/predict', methods=["POST"])
 def predict():
     try:
@@ -187,7 +182,7 @@ def predict():
     pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
     pred_time = int(time.time() * 1000)
 
-    if config.ENV == 'prod':
+    if environment == Environment.PROD:
         try:
             roll_back = False
             res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_ALL, [str(pred[0]), str(pred[1])])
@@ -212,7 +207,7 @@ def predict():
             logging.error(e)
             logging_in_disk(e)
             return 'Error'
-    else:
+    elif environment == Environment.TEST:
         try:
             roll_back = False
             res = handler.RunPLCCommand(DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL, [str(pred[0]), str(pred[1])])
@@ -237,6 +232,8 @@ def predict():
             logging.error(e)
             logging_in_disk(e)
             return 'Error'
+    elif environment == Environment.NONE:
+        pass
 
     result = {
         'brand': brand,
@@ -270,8 +267,8 @@ def logging_in_disk(s):
         f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
 
 
-@app.route('/api/reset', methods=["POST"])
-def reset():
+@app.route('/api/manual_reset', methods=["POST"])
+def manual_reset():
     data = request.get_json()
     T1 = data['T1']
     T2 = data['T2']
@@ -284,8 +281,8 @@ def reset():
     return res
 
 
-@app.route('/api/set', methods=["POST"])
-def set_():
+@app.route('/api/manual_reset', methods=["POST"])
+def manual_set():
     data = request.get_json()
     T1 = data['T1']
     T2 = data['T2']
@@ -298,13 +295,23 @@ def set_():
     return res
 
 
+@app.route('/api/get_environment')
+def test():
+    return jsonify(environment)
+
+
 @app.route('/api/change_env')
 def change_env():
     env = request.args.get("env")
-    if env in ['prod', 'test']:
-        config.ENV = env
-        return env
-    return 'Fail'
+    if env != Environment.NONE and env != Environment.PROD and env != Environment.TEST:
+        return jsonify('Error')
+    global environment
+    environment = env
+
+    save_dict_to_txt('./config/env', {
+        'env': environment
+    })
+    return jsonify('OK')
 
 
 @app.route('/api/load_model_config')
@@ -326,7 +333,9 @@ if __name__ == '__main__':
     model_head.load(MODEL_SAVE_DIR + load_current_model('head'))
     one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
     handler = CommandHandler(CONTROL_URL)
+    environment = read_txt_to_dict('./config/env')['env']
     print('Current model: ', load_current_model('produce').split('/')[0])
+    print('Current env: ', environment)
     app.run(host='0.0.0.0')
 
 # for test use
