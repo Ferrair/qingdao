@@ -10,14 +10,13 @@ from flask import Flask, jsonify, request
 import pandas as pd
 from src.config.config import MODEL_SAVE_DIR, Environment, ROOT_PATH
 from src.utils.util import *
-import random
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 
 model_produce = LRModel()
 model_transition = LRModel()
-model_head = HeadModel(STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE)
+model_head = HeadModel()
 one_hot = None
 previous_value = dict()
 environment = None
@@ -57,57 +56,11 @@ def api_select_current_model_name():
 
 
 def train_val_model():
-    model_save_dir = MODEL_SAVE_DIR + get_current_time()
-
-    data = read_data('../data.csv')
-    data = data_clean(data)
-    data_per_brand, criterion = split_data_by_brand(data)
-    one_hot = encode(list(data_per_brand.keys()))
-
-    # Produce stage
-    X_produce, y_produce, delta_produce, mapping_produce = generate_all_training_data(data_per_brand,
-                                                                                      criterion,
-                                                                                      one_hot,
-                                                                                      'produce')
-    metrics_produce = model_produce.train_validate(X_produce, y_produce, delta_produce, mapping_produce)
-
-    # Transition stage
-    X_transition, y_transition, delta_transition, mapping_transition = generate_all_training_data(data_per_brand,
-                                                                                                  criterion,
-                                                                                                  one_hot,
-                                                                                                  'transition')
-    metrics_transition = model_transition.train_validate(X_transition,
-                                                         y_transition,
-                                                         delta_transition,
-                                                         mapping_transition)
-
-    # Head stage
-    init_per_brand, stable_per_brand = generate_head_dict(data_per_brand, criterion)
-    model_head.train(init_per_brand, stable_per_brand)
-
-    # save model
-    os.makedirs(model_save_dir)
-    model_produce_save_path = model_save_dir + '#produce#' + str(round(metrics_produce['mae'], 3))
-    model_transition_save_path = model_save_dir + '#transition#' + str(round(metrics_transition['mae'], 3))
-    model_head_save_path = model_save_dir + '#head'
-    one_hot_save_path = model_save_dir + '#one-hot-brands'
-
-    model_produce.save(model_produce_save_path)
-    model_transition.save(model_transition_save_path)
-    model_head.save(model_head_save_path)
-    save_dict_to_txt(one_hot_save_path, one_hot)
+    pass
 
 
 def validate(data_per_batch: pd.DataFrame) -> np.array:
-    test_produce, _ = generate_validation_data(data_per_batch, 'produce')
-    test_transition, _ = generate_validation_data(data_per_batch, 'transition')
-
-    pred_produce = model_produce.predict(test_produce)
-    pred_transition = model_transition.predict(test_transition)
-    pred_head = predict_head(data_per_batch, model_head.init_per_brand, model_head.stable_per_brand)
-
-    pred = np.concatenate([pred_head, pred_transition, pred_produce], axis=0)
-    return pred
+    pass
 
 
 def get_auxiliary() -> list:

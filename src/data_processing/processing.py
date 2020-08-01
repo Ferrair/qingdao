@@ -381,67 +381,6 @@ def generate_brand_produce_training_data(item_brand, brand_index: int, setting: 
     return brand_train_data, brand_train_label, brand_delta, brand_mapping,
 
 
-def generate_head_dict(data_per_brand: dict, criterion: dict, round_: bool = True) -> Tuple[dict, dict]:
-    """
-    generate 2 dict represent init value and stable value for each brand
-    :param data_per_brand: all brand data
-    :param criterion: criterion for each brand
-    :param round_: whether round result
-    :return:
-        init_per_brand: init value for each brand
-        stable_per_brand: stable value for each brand
-    """
-    init_value = {}
-    stable_value = {}
-    total_lag = SETTING_LAG + REACTION_LAG
-    for brand in data_per_brand:
-        item_brand = data_per_brand[brand]
-
-        init_per_batch = []
-        stable_per_batch = []
-
-        for item_batch in item_brand:
-            if len(item_batch) <= 5:
-                continue
-            item_batch['时间'] = item_batch['时间'].map(lambda x: format_time(x))
-            item_batch = item_batch.sort_values(by=['时间'], ascending=True)
-
-            # calc init value
-            init_per_batch.append([item_batch['筒壁1区温度设定值'].iloc[0], item_batch['筒壁2区温度设定值'].iloc[0]])
-
-            # calc stable value
-            humidity = item_batch['出口水分']
-            end = len(item_batch) - 1
-            start = len(item_batch) - 1
-            for i in range(len(item_batch) - 1, 1, -1):
-                if np.abs(humidity.iloc[i] - criterion[brand]) <= MODEL_HEAD_CRITERION:
-                    start -= 1
-                else:
-                    break
-            if start == end or start < total_lag:
-                continue
-
-            stable_one = np.mean(item_batch['筒壁1区温度设定值'].iloc[start - total_lag: end - total_lag])
-            stable_two = np.mean(item_batch['筒壁2区温度设定值'].iloc[start - total_lag: end - total_lag])
-            stable_per_batch.append([stable_one, stable_two])
-
-        init_value[brand] = init_per_batch
-        stable_value[brand] = stable_per_batch
-
-    init_per_brand = {}
-    stable_per_brand = {}
-
-    for index, item in enumerate(init_value):
-        result_ = np.round(np.mean(init_value[item], axis=0), 2) if round_ else np.mean(init_value[item], axis=0)
-        init_per_brand[item] = list(result_)
-
-    for index, item in enumerate(stable_value):
-        result_ = np.round(np.mean(stable_value[item], axis=0), 2) if round_ else np.mean(stable_value[item], axis=0)
-        stable_per_brand[item] = list(result_)
-
-    return init_per_brand, stable_per_brand
-
-
 def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: dict, stage: str) -> Tuple[
     np.array, np.array, np.array, np.array]:
     """
@@ -515,32 +454,15 @@ def concatenate(data_: list) -> np.array:
     return result
 
 
-def predict_head(data_per_batch: pd.DataFrame, init_per_brand: dict, stable_per_brand: dict) -> np.array:
+def predict_head(data_per_batch: pd.DataFrame, ratio: dict, stable_per_brand: dict) -> np.array:
     """
     predict in head stage
     :param data_per_batch: one batch data
-    :param init_per_brand: init value for each brand
+    :param ratio: ratio
     :param stable_per_brand: stable value for each brand
     :return: predicted value in head stage
     """
-    range_ = STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE
-    brand = data_per_batch['牌号'].iloc[0]
-    pred_head_one = []
-    pred_head_two = []
-    for i in range(range_):
-        if i < 16:
-            pred_head_one.append(init_per_brand[brand][0])
-        else:
-            pred_head_one.append(stable_per_brand[brand][0])
-
-        if i < 58:
-            pred_head_two.append(init_per_brand[brand][1])
-        else:
-            pred_head_two.append(stable_per_brand[brand][1])
-
-    pred_head_one = np.round(pred_head_one, 3)
-    pred_head_two = np.round(pred_head_two, 3)
-    return np.array([pred_head_one, pred_head_two]).T
+    pass
 
 
 def generate_validation_data(data_per_batch: pd.DataFrame, stage: str) -> Tuple[np.array, np.array]:

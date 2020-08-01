@@ -65,7 +65,7 @@ class TailModel(BasicModel):
             raise Exception(
                 'flow({}) <= self.flow_min_limit({}), please do not use tail model.'.format(flow, self.flow_min_limit))
 
-        if not self.batch:
+        if not self.batch or self.batch != batch:
             self.batch = batch
             self.timer = 0
             self.plain_timer = 0
