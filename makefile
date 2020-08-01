@@ -1,11 +1,11 @@
-INSTALL_HOME = $(shell pwd)
+INSTALL_HOME=$(shell pwd)
 
 package :
-	pip download -r $(INSTALL_HOME)/requirements.txt -d $(INSTALL_HOME)/requirements
-	zip -r $(INSTALL_HOME)/hongsi_deploy.zip ./*
+	pip download -r $(INSTALL_HOME)/requirements.txt -d $(INSTALL_HOME)/requirements -i https://pypi.tuna.tsinghua.edu.cn/simple
+	zip -r $(INSTALL_HOME)/hongsi_deploy_2020.zip ./*
 
 install : $(INSTALL_HOME)/requirements.txt $(INSTALL_HOME)/requirements $(INSTALL_HOME)/src/config/config.py
-	pip install --ignore-installed --no-index --find-links=$(INSTALL_HOME)/requirements -r $(INSTALL_HOME)/requirements.txt
+	pip install --ignore-installed --no-index --find-links=$(INSTALL_HOME)/requirements -r $(INSTALL_HOME)/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 	sed -i "s?^ROOT_PATH.*?ROOT_PATH = '$(INSTALL_HOME)'?g" $(INSTALL_HOME)/src/config/config.py
 run :
 	export PYTHONPATH=$(PYTHONPATH):$(INSTALL_HOME) && \

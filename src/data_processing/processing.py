@@ -36,7 +36,7 @@ FURTHER_STEP = 10  # 未来时刻出口水分采样步长
 MODEL_TRANSITION_CRITERION = 0.05
 TRANSITION_FEATURE_RANGE = 16  # Transition 特征选取的区间范围
 TRANSITION_SPLIT_NUM = 4  # Transition 特征选取分割区间的数量
-STABLE_UNAVAILABLE = 120  # 出口水分不可用阶段
+STABLE_UNAVAILABLE = 200  # 出口水分不可用阶段
 TRANSITION_SIZE = 400  # 定义 Transition 的长度
 
 MODEL_HEAD_CRITERION = 0.25

@@ -3,27 +3,22 @@ import logging
 import os.path
 import time
 
-project_path = 'PythonDeviceControlLib'
+from src.config.config import ROOT_PATH
 
 
 class PLog(object):
     def __init__(self):
-        current_path = os.path.dirname(os.path.abspath(project_path))
-        path1 = current_path.split(project_path)
-        path2 = [path1[0], project_path]
-        path3 = ''
-        new_name = path3.join(path2) + '/logs/'
-
+        path = ROOT_PATH + '/logs/'
         dir_time = time.strftime('%Y%m%d', time.localtime(time.time()))
-        isExists = os.path.exists(new_name)
+        isExists = os.path.exists(path)
         if not isExists:
-            os.makedirs(new_name)
-            print(new_name + " directory created.")
+            os.makedirs(path)
+            print(path + " directory created.")
 
         try:
             self.log = logging.getLogger()
             self.log.setLevel(logging.DEBUG)
-            log_name = new_name + 'log-' + dir_time + '.log'
+            log_name = path + 'log-' + dir_time + '.log'
 
             fh = logging.FileHandler(log_name)
             fh.setLevel(logging.INFO)

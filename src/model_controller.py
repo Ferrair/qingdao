@@ -1,16 +1,16 @@
+# -*- coding:UTF-8 -*-
 import logging
 
-from src.PythonDeviceControlLib.CommandHanlder import CommandHandler
-from src.PythonDeviceControlLib.DeviceCommands import DeviceCommandTypes
+from src.PythonDeviceControlLib.HSControl import *
 from src.manager.model_manager import load_current_model
 from src.data_processing.processing import *
 from src.model.head import HeadModel
 from src.model.lr_model import LRModel
 from flask import Flask, jsonify, request
 import pandas as pd
-from src.config.config import MODEL_SAVE_DIR, CONTROL_URL, Environment
+from src.config.config import MODEL_SAVE_DIR, Environment, ROOT_PATH
 from src.utils.util import *
-import json
+import random
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -21,6 +21,8 @@ model_head = HeadModel(STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE)
 one_hot = None
 previous_value = dict()
 environment = None
+failure = False
+brand_strict = True
 
 # TODO: not hard code here
 criterion = {'Txy###': 12.699999999999994,
@@ -124,7 +126,7 @@ def check_dim(current: int, required: int):
 
 
 @app.route('/api/predict', methods=["POST"])
-def predict():
+def predict_api():
     try:
         data = request.get_json()
         keys = data.keys()
@@ -134,6 +136,9 @@ def predict():
 
         storm_time = int(time.time() * 1000)
         time_ = data['time']
+        window_time = data.get('window_time', 0)
+        model_time = data.get('model_time', 0)
+        kafka_time = data.get('kafka_time', 0)
         batch = data['batch']
         index = data['index']
         stage = data['stage']
@@ -150,10 +155,13 @@ def predict():
     except Exception as e:
         logging.error(e)
         return
-
     if brand not in one_hot.keys():
-        logging.info('our model cannot handle new brand: ' + brand)
-        return jsonify('our model cannot handle new brand: ' + brand)
+        if brand_strict:
+            logging.info('our model cannot handle new brand: ' + brand)
+            return jsonify('our model cannot handle new brand: ' + brand)
+        else:
+            brand = 'Txy###'
+
     if stage == 'produce':
         try:
             check_dim(len(features), len(feature_column) * 5 * SPLIT_NUM)
@@ -182,11 +190,10 @@ def predict():
     pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
     pred_time = int(time.time() * 1000)
 
-    if environment == Environment.PROD:
+    if environment == Environment.PROD and not failure:
         try:
             roll_back = False
-            res = handler.RunPLCCommand(DeviceCommandTypes.ML_5K_HS_TB_WD_SET_ALL, [str(pred[0]), str(pred[1])])
-            res = json.loads(res.decode())
+            res = set_prod([str(pred[0]), str(pred[1])])
             logging.info(res)
             logging_in_disk(res)
             for r in res:
@@ -197,21 +204,17 @@ def predict():
                     previous_value['T2'] = r['PreviousValue']
 
             if roll_back:
-                res = handler.RunPLCCommand(
-                    DeviceCommandTypes.ML_5K_HS_TB_WD_RESET_ALL,
-                    [str(previous_value['T1']), str(previous_value['T2'])]
-                )
+                res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
                 logging.info(res)
                 logging_in_disk(res)
         except Exception as e:
             logging.error(e)
             logging_in_disk(e)
             return 'Error'
-    elif environment == Environment.TEST:
+    elif environment == Environment.TEST and not failure:
         try:
             roll_back = False
-            res = handler.RunPLCCommand(DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL, [str(pred[0]), str(pred[1])])
-            res = json.loads(res.decode())
+            res = set_test([str(pred[0]), str(pred[1])])
             logging.info(res)
             logging_in_disk(res)
             for r in res:
@@ -222,10 +225,7 @@ def predict():
                     previous_value['T2'] = r['PreviousValue']
 
             if roll_back:
-                res = handler.RunPLCCommand(
-                    DeviceCommandTypes.ML_5H_5H_LD5_TEST_RESET_ALL,
-                    [str(previous_value['T1']), str(previous_value['T2'])]
-                )
+                res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
                 logging.info(res)
                 logging_in_disk(res)
         except Exception as e:
@@ -240,7 +240,10 @@ def predict():
         'batch': batch,
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
-        'time': time_,  # sample time
+        'time': time_,  # 采样数据的采样时间
+        'window_time': window_time,  # 进行Windows划分后的时间
+        'model_time': model_time,  # 继续特征计算的时间
+        'kafka_time': kafka_time,  # 从Kafka得到数据的时间
         'storm_time': storm_time,  # 数据从Storm过来的时间
         'pred_time': pred_time,  # 预测完成的时间
         'plc_time': int(time.time() * 1000),  # call plc返回后的的时间
@@ -255,7 +258,11 @@ def logging_pred_in_disk(s):
     """
     写Logs，只写预测的结果
     """
-    with open('../logs/pred_log.txt', 'a', buffering=1024 * 10) as f:
+    path = ROOT_PATH + '/logs/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    with open(path + 'pred_log.txt', 'a', buffering=1024 * 10) as f:
         f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
 
 
@@ -263,52 +270,82 @@ def logging_in_disk(s):
     """
     写Logs，所有的Logs都写到Disk里面去了
     """
-    with open('../logs/all_log.txt', 'a', buffering=1024 * 10) as f:
-        f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
+    pass
+    # with open('../logs/all_log.txt', 'a', buffering=1024 * 10) as f:
+    #     f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
 
 
 @app.route('/api/manual_reset', methods=["POST"])
-def manual_reset():
+def manual_reset_api():
     data = request.get_json()
-    T1 = data['T1']
-    T2 = data['T2']
+    T1 = data.get('T1', 135)
+    T2 = data.get('T2', 120)
+    if environment == Environment.TEST:
+        res = reset_test([str(T1), str(T2)])
+        logging.info(res)
+        return res
+    elif environment == Environment.PROD:
+        res = reset_prod([str(T1), str(T2)])
+        logging.info(res)
+        return res
+    else:
+        return jsonify("Fail")
 
-    res = handler.RunPLCCommand(
-        DeviceCommandTypes.ML_5H_5H_LD5_TEST_RESET_ALL,
-        [str(T1), str(T2)]
-    )
-    logging.info(res)
-    return res
 
-
-@app.route('/api/manual_reset', methods=["POST"])
-def manual_set():
+@app.route('/api/manual_set', methods=["POST"])
+def manual_set_api():
     data = request.get_json()
-    T1 = data['T1']
-    T2 = data['T2']
+    try:
+        T1 = data['T1']
+        T2 = data['T2']
+    except Exception as e:
+        logging.error('Please set T1 and T2')
+        return jsonify('Please set T1 and T2')
 
-    res = handler.RunPLCCommand(
-        DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL,
-        [str(T1), str(T2)]
-    )
-    logging.info(res)
-    return res
+    global failure
+    failure = True
+    if environment == Environment.TEST:
+        res = set_test([str(T1), str(T2)])
+        logging.info(res)
+        return res
+    elif environment == Environment.PROD:
+        res = set_prod([str(T1), str(T2)])
+        logging.info(res)
+        return res
+    else:
+        return jsonify("Fail")
 
 
 @app.route('/api/get_environment')
-def test():
+def test_api():
     return jsonify(environment)
 
 
+# 模拟异常产生
+@app.route('/api/mock_failure', methods=["GET"])
+def mock_failure_api():
+    global failure
+    failure = True
+    return jsonify('mocked failure is trigger. {}'.format(failure))
+
+
+# 恢复生产
+@app.route('/api/reset_prod', methods=["GET"])
+def reset_prod_api():
+    global failure
+    failure = False
+    return jsonify('reset_prod is trigger. {}'.format(failure))
+
+
 @app.route('/api/change_env')
-def change_env():
+def change_env_api():
     env = request.args.get("env")
     if env != Environment.NONE and env != Environment.PROD and env != Environment.TEST:
         return jsonify('Error')
     global environment
     environment = env
 
-    save_dict_to_txt('./config/env', {
+    save_dict_to_txt(ROOT_PATH + '/src/config/env', {
         'env': environment
     })
     return jsonify('OK')
@@ -332,25 +369,7 @@ if __name__ == '__main__':
     model_transition.load(MODEL_SAVE_DIR + load_current_model('transition'))
     model_head.load(MODEL_SAVE_DIR + load_current_model('head'))
     one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
-    handler = CommandHandler(CONTROL_URL)
-    environment = read_txt_to_dict('./config/env')['env']
+    environment = read_txt_to_dict(ROOT_PATH + '/src/config/env')['env']
     print('Current model: ', load_current_model('produce').split('/')[0])
     print('Current env: ', environment)
-    app.run(host='0.0.0.0')
-
-# for test use
-#
-# X_test = np.array(X_test)
-# feature_slice = np.array(np.vsplit(X_test, SPLIT_NUM))
-# feature = np.concatenate([
-#     np.mean(feature_slice, axis=1).ravel(),
-#     np.std(feature_slice, axis=1).ravel(),
-#     calc_integral(feature_slice).ravel(),
-#     skew(feature_slice, axis=1).ravel(),
-#     kurtosis(feature_slice, axis=1).ravel(),
-# ])
-# feature = feature.ravel()
-# feature = np.concatenate([feature, one_hot_dict['TG####A']])
-# feature = feature.reshape((1, len(feature)))
-# a = scaler.transform(feature)
-# a_pred = clf.predict(a)
+    app.run(host='0.0.0.0', port=5000)
