@@ -1,11 +1,11 @@
+from src.manager.model_manager import FLOW_LIMIT
 from src.model.base import BasicModel
-from src.utils.util import save_dict_to_txt, read_txt_to_dict
-import numpy as np
 
 
 class TailModel(BasicModel):
-    def __init__(self, next_range_1: float, next_range_2: float, flow_min_limit: int = 2000, range_lag_1: int = 30,
-                 range_lag_2: int = 90, rate: float = 0.25, plain_duration: int = 180, plain_temp: int = 100):
+    def __init__(self, next_range_1: float, next_range_2: float, flow_min_limit: int = FLOW_LIMIT,
+                 range_lag_1: int = 30, range_lag_2: int = 90, rate: float = 0.25,
+                 plain_duration: int = 180, plain_temp: int = 100):
         """
         :param next_range_1: 下一次预热的温度
         :param next_range_2: 下一次预热的温度
@@ -30,7 +30,7 @@ class TailModel(BasicModel):
 
         self.plain_timer = 0
         self.timer = 0
-        self.batch = None
+        # self.batch = None
 
     def train(self, init_per_brand: dict, stable_per_brand: dict):
         pass
@@ -52,12 +52,11 @@ class TailModel(BasicModel):
     def check_model_state(self):
         pass
 
-    def predict(self, batch: str, flow: int, last_temp_1: float, last_temp_2: float) -> list:
+    def predict(self, flow: int, last_temp_1: float, last_temp_2: float) -> list:
         """
         predict in head stage
         :param last_temp_2: 上次的二区温度
         :param last_temp_1: 上次的一区温度
-        :param batch: batch name
         :param flow: 流量
         :return: predicted value
         """
@@ -65,12 +64,10 @@ class TailModel(BasicModel):
             raise Exception(
                 'flow({}) <= self.flow_min_limit({}), please do not use tail model.'.format(flow, self.flow_min_limit))
 
-        if not self.batch or self.batch != batch:
-            self.batch = batch
-            self.timer = 0
-            self.plain_timer = 0
-
-        self.timer += 1
+        # if not self.batch or self.batch != batch:
+        #     self.batch = batch
+        #     self.timer = 0
+        #     self.plain_timer = 0
 
         # 1. 递减的过程
         if self.timer >= self.range_lag_1 and last_temp_1 - self.plain_temp > self.rate \
@@ -92,4 +89,5 @@ class TailModel(BasicModel):
         if last_temp_2 - self.plain_temp <= self.rate and last_temp_1 - self.plain_temp <= self.rate:
             self.plain_timer += 1
 
+        self.timer += 1
         return [last_temp_1, last_temp_2]

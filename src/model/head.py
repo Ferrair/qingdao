@@ -1,11 +1,13 @@
 import numpy as np
 
+from src.config.config import MODEL_SAVE_DIR
+from src.manager.model_manager import FLOW_LIMIT, load_current_model
 from src.model.base import BasicModel
 from src.utils.util import save_dict_to_txt, read_txt_to_dict
 
 
 class HeadModel(BasicModel):
-    def __init__(self, range_1_lag: int = 30, range_2_lag: int = 120, flow_min_limit: int = 2000):
+    def __init__(self, range_1_lag: int = 30, range_2_lag: int = 120, flow_min_limit: int = FLOW_LIMIT):
         self.flow_min_limit = flow_min_limit
         self.ratio = {}
         self.stable_per_brand = {}
@@ -13,7 +15,6 @@ class HeadModel(BasicModel):
 
         self.range_2_lag = range_2_lag
         self.range_1_lag = range_1_lag
-        self.batch = None
 
     def train(self, ratio: dict, stable_per_brand: dict):
         self.ratio = ratio
@@ -45,15 +46,14 @@ class HeadModel(BasicModel):
         if self.stable_per_brand is None:
             raise Exception('No available stable_per_brand.')
 
-    def predict(self, brand: str, batch: str, flow: int, humid: int, last_temp_1: float, last_temp_2: float) -> list:
+    def predict(self, brand: str, flow: int, humid_after_cut: int, last_temp_1: float, last_temp_2: float) -> list:
         """
         predict in head stage
         :param flow: 流量
-        :param humid: 切丝后出口水分
+        :param humid_after_cut: 切丝后出口水分
         :param last_temp_1: 上一个时间点的一区温度
         :param last_temp_2: 上一个时间点的二区温度
         :param brand: 牌号
-        :param batch: 批次
         :return: predicted value
         """
         if flow < self.flow_min_limit:
@@ -62,17 +62,17 @@ class HeadModel(BasicModel):
         if not self.ratio or not self.stable_per_brand:
             raise Exception('No available head model, please train a new model or load from disk.')
 
-        if not self.batch or self.batch != batch:
-            self.batch = batch
-            self.timer = 0
+        # if not self.batch or self.batch != batch:
+        #     self.batch = batch
+        #     self.timer = 0
 
         # region 1
         if self.timer == self.range_1_lag:
-            last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand] * humid)
+            last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand] * humid_after_cut)
 
         # region 2
         if self.timer == self.range_2_lag:
-            last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand] * humid)
+            last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand] * humid_after_cut)
 
         self.timer += 1
         return [last_temp_1, last_temp_2]

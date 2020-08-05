@@ -1,27 +1,20 @@
-from datetime import datetime
-from typing import Tuple
-
 import pandas as pd
 import numpy as np
 from scipy.stats import skew
 from scipy.stats import kurtosis
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from src.utils.util import format_time
 
-columns = [
-    '时间', '批次', '牌号', '设备状态',
-    '入口水分', '出口水分', '出口水分设定值', '烘前叶丝流量累积量',
-    '热风速度设定值', '热风速度实际值',
-    '烘前叶丝流量设定值', '烘前叶丝流量',
-    '筒壁1区温度设定值', '筒壁1区温度实际值',
-    '筒壁2区温度实际值', '筒壁2区温度设定值', '罩压力'
-]
+from src.utils.util import name_list_2_plc_list
 
-feature_column = ['出口水分差值', '热风速度实际值',
-                  '入口水分', '罩压力', '筒壁1区温度实际值', '筒壁1区温度设定值',
-                  '筒壁2区温度实际值', '筒壁2区温度设定值']
+feature_name_columns = ['最终烟丝含水实际值', '烘丝出口温度', '瞬时流量', '累计流量',
+                        '罩压力反馈值', '罩压力实际值', '桶温区1反馈值', '桶温区1实际值', '桶温区1设定值', '桶温区2反馈值',
+                        '桶温区2实际值', '桶温区2设定值', '工艺气体温度反馈值', '工艺气体温度实际值',
+                        '入口烟丝水分', '回潮机水分增加', '最终水分PID控制反馈值',
+                        '罩压力PID控制反馈值', '工艺气速度反馈值', '工艺气速度实际值', '工艺气速度设定值', '工艺气体温度设定值',
+                        '区域1为滚筒加热正向控制除水', '区域2为滚筒加热正向控制除水',
+                        '最终烟丝含水设定值', '桶温区1阀后蒸汽压力', '桶温区2阀后蒸汽压力', '工作点脱水', '脱水速度',
+                        '工艺蒸汽流量实际值', '工艺蒸汽流量设定值', 'SIROX阀后蒸汽压力', 'Sirox出口物料温度']
 
-label_column = ['筒壁1区温度设定值', '筒壁2区温度设定值']
+feature_plc_columns = name_list_2_plc_list(feature_name_columns)
 
 STABLE_WINDOWS_SIZE = 10  # 稳态的时长
 SPLIT_NUM = 10  # 特征选取分割区间的数量（需要被FEATURE_RANGE整除）
@@ -41,93 +34,26 @@ TRANSITION_SIZE = 400  # 定义 Transition 的长度
 
 MODEL_HEAD_CRITERION = 0.25
 
-VERBOSE = True
 
-assert FEATURE_RANGE % SPLIT_NUM == 0, 'FEATURE_RANGE % SPLIT_NUM != 0'
-assert TRANSITION_FEATURE_RANGE % TRANSITION_SPLIT_NUM == 0, 'TRANSITION_FEATURE_RANGE % TRANSITION_SPLIT_NUM != 0'
-assert (REACTION_LAG + SETTING_LAG + STABLE_WINDOWS_SIZE) % FURTHER_STEP == 0, \
-    '(REACTION_LAG + SETTING_LAG + STABLE_WINDOWS_SIZE) % FURTHER_STEP != 0 '
-
-
-def read_data(filename: str) -> pd.DataFrame:
+def calc_feature_lgbm(item_: pd.DataFrame) -> np.array:
     """
-    read data from local disk or cloud
-    :param filename: filename to read
-    :return: DataFrame
-    """
-    original = pd.read_csv(filename, encoding='gbk')
-    return original[columns]
-
-
-def data_clean(data: pd.DataFrame) -> pd.DataFrame:
-    """
-    clean dirty data
-    :param data: original data
-    :return: cleaned data
-    """
-
-    # 1. Drop nan
-    data = data.dropna()
-
-    # 2. 牌号莫名奇妙的存储时间，drop这些行
-    index = data[[isinstance(item, str) and item.startswith('2019') for item in data['牌号']]].index
-    data = data.drop(index, axis=0)
-
-    # 3. 烘前叶丝流量 == 0，表示设备没有运行
-    index = data[data['烘前叶丝流量'] == 0].index
-    data = data.drop(index, axis=0)
-
-    # 4. 只考虑 '准备', '启动', '生产', '收尾' 四个状态的数据
-    data = data[data['设备状态'].isin(['准备', '启动', '生产', '收尾'])]
-
-    # 5. 过滤批次为 '000'的数据
-    data = data[data['批次'] != '000']
-
-    # 6. 计算出口水分差值
-    data['出口水分差值'] = data['出口水分'] - data['出口水分设定值']
-    return data
-
-
-def split_data_by_brand(data: pd.DataFrame) -> Tuple[dict, dict]:
-    """
-    split the continuous time series data into each brand and batch (牌号和批次)
-    :param data: the continuous time series data
-    :return: data after split, data_per_brand[i][j] means i-th brand and j-th batch
-    """
-
-    data_per_brand = {}
-    criterion = {}
-
-    for brand in data['牌号'].unique():
-        item_brand = data[data['牌号'] == brand]
-        data_per_batch = []
-
-        for batch in item_brand['批次'].unique():
-            item_batch = item_brand[item_brand['批次'] == batch]
-
-            item_batch['时间'] = item_batch['时间'].map(lambda x: format_time(x))
-            item_batch = item_batch.sort_values(by=['时间'], ascending=True)
-
-            data_per_batch.append(item_batch)
-
-        criterion[brand] = item_brand['出口水分设定值'].mean()
-        data_per_brand[brand] = data_per_batch
-
-    return data_per_brand, criterion
-
-
-def calc_feature(item_: pd.DataFrame, feature_end: int, feature_range: int, split_num: int) -> np.array:
-    """
+    测试阶段用于计算特征的
     calc feature for each sample data
     :param item_: sample data
-    :param feature_end: the end time to calc feature
-    :param feature_range: feature calc range
+    :return: feature array
+    """
+    return item_[feature_plc_columns].values.ravel()
+
+
+def calc_feature_lr(item_: pd.DataFrame, split_num: int) -> np.array:
+    """
+    测试阶段用于计算特征的
+    calc feature for each sample data
+    :param item_: sample data
     :param split_num: how many splits after splitting
     :return: feature array
     """
-    feature_start = feature_end - feature_range
-
-    feature_slice = item_[feature_column].iloc[feature_start: feature_end].values
+    feature_slice = item_[feature_plc_columns].values
 
     # shape = (SPLIT_NUM, FEATURE_RANGE / SPLIT_NUM, FEATURE_NUM)
     feature_slice = np.array(np.vsplit(feature_slice, split_num))
@@ -145,19 +71,6 @@ def calc_feature(item_: pd.DataFrame, feature_end: int, feature_range: int, spli
     return feature.ravel()
 
 
-def rolling_window(data_: np.array, window: int) -> np.array:
-    """
-    slide window from start to end of 1D array,
-    generate a 2D array which shape = (len(data_) - 1, window)
-    :param data_: 1D array
-    :param window: slide window size
-    :return: 2D array
-    """
-    shape = data_.shape[:-1] + (data_.shape[-1] - window + 1, window)
-    strides = data_.strides + (data_.strides[-1],)
-    return np.lib.stride_tricks.as_strided(data_, shape=shape, strides=strides)
-
-
 def calc_integral(data_: np.array) -> np.array:
     """
     calc integral
@@ -170,279 +83,6 @@ def calc_integral(data_: np.array) -> np.array:
     return sum_ - (data_[:, 0, :] + data_[:, data_.shape[1] - 1, :]) / 2
 
 
-def calc_label(item_: pd.DataFrame, start: int, end: int) -> np.array:
-    """
-    calc label for each sample
-    :param item_: sample data
-    :param start: the start time to calc label
-    :param end: the end time to calc label
-    :return: a array with exactly 2 number: temperature of region 1 and temperature of region 2
-    """
-    return np.mean(item_[label_column].iloc[start: end].values, axis=0)
-
-
-def calc_current(item_: pd.DataFrame, start: int) -> np.array:
-    """
-    calc current value for evaluation use
-    :param item_: sample data
-    :param start: the start time for region 2 to calc current value
-    :return: a array with exactly 2 number: current temperature of region 1 and current temperature of region 2
-    """
-    return item_[label_column].iloc[start].values
-
-
-def calc_delta(item_: pd.DataFrame, start: int, end: int) -> np.array:
-    label_ = calc_label(item_, start, end)
-    delta = label_ - item_[label_column].iloc[start]
-    return delta.values
-
-
-def generate_brand_transition_training_data(item_brand, brand_index: int, setting: float, one_hot_brand: np.array) \
-        -> Tuple[np.array, np.array, np.array, np.array]:
-    """
-    generate training data and label for one brand in 'transition' stage
-    this method is time consuming
-    :param item_brand: the brand data to generate
-    :param brand_index: brand index
-    :param setting: the setting value
-    :param one_hot_brand: brand one hot encode
-    :return:
-        brand_train_data: all training data for this brand, shape=(N, M),
-            which N denotes the number of training data, M denotes the number of feature
-        brand_train_label: all training label for this brand, shape=(N, 2)
-        brand_delta: delta info
-        brand_mapping: mapping info
-    """
-    brand_train_data = []
-    brand_train_label = []
-    brand_delta = []
-    brand_mapping = []
-
-    for batch_index, item_batch in enumerate(item_brand):
-        item_batch = item_batch.iloc[:TRANSITION_SIZE, :]
-        item_batch = item_batch.reset_index(drop=True)
-        length = len(item_batch)
-        humidity = item_batch['出口水分'].values
-
-        stable_index = np.abs(humidity - setting) < MODEL_TRANSITION_CRITERION
-        # No stable area in this batch
-        if np.sum(stable_index) == 0 or len(stable_index) < STABLE_WINDOWS_SIZE:
-            continue
-        stable_index = np.sum(rolling_window(stable_index, STABLE_WINDOWS_SIZE), axis=1)
-        stable_index = np.where(stable_index == STABLE_WINDOWS_SIZE)[0]
-
-        range_start = STABLE_UNAVAILABLE + TRANSITION_FEATURE_RANGE
-        range_end = length - STABLE_WINDOWS_SIZE
-
-        for stable_start in stable_index:
-            if stable_start < range_start or stable_start >= range_end:
-                continue
-            adjust_end = stable_start - REACTION_LAG - SETTING_LAG
-            adjust_start = adjust_end - LABEL_RANGE
-
-            # store feature
-            auxiliary_ = item_batch['出口水分差值'].values.ravel()[
-                         adjust_end: stable_start + STABLE_WINDOWS_SIZE: FURTHER_STEP]
-            brand_train_data.append(
-                np.concatenate([
-                    calc_feature(
-                        item_batch,
-                        adjust_start,
-                        TRANSITION_FEATURE_RANGE,
-                        TRANSITION_SPLIT_NUM
-                    ), auxiliary_, [setting], one_hot_brand
-                ])
-            )
-
-            # store label
-            brand_train_label.append(
-                calc_label(
-                    item_batch,
-                    adjust_start,
-                    adjust_end
-                )
-            )
-
-            # store mapping info
-            brand_mapping.append([
-                brand_index,
-                batch_index,
-                adjust_start,
-                adjust_end,
-                stable_start
-            ])
-
-            # store delta value
-            brand_delta.append(
-                calc_delta(
-                    item_batch,
-                    adjust_start,
-                    adjust_end,
-                )
-            )
-
-    brand_train_data = np.array(brand_train_data)
-    brand_train_label = np.array(brand_train_label)
-    brand_mapping = np.array(brand_mapping)
-    brand_delta = np.array(brand_delta)
-
-    return brand_train_data, brand_train_label, brand_delta, brand_mapping,
-
-
-def generate_brand_produce_training_data(item_brand, brand_index: int, setting: float, one_hot_brand: np.array) \
-        -> Tuple[np.array, np.array, np.array, np.array]:
-    """
-    generate training data and label for one brand in 'produce' stage
-    this method is time consuming
-    :param item_brand: the brand data to generate
-    :param brand_index: brand index
-    :param setting: the setting value
-    :param one_hot_brand: brand one hot encode
-    :return:
-        brand_train_data: all training data for this brand, shape=(N, M),
-            which N denotes the number of training data, M denotes the number of feature
-        brand_train_label: all training label for this brand, shape=(N, 2)
-        brand_delta: delta info
-        brand_mapping: mapping info
-    """
-    brand_train_data = []
-    brand_train_label = []
-    brand_delta = []
-    brand_mapping = []
-
-    for batch_index, item_batch in enumerate(item_brand):
-        item_batch = item_batch.iloc[TRANSITION_SIZE:, :]
-        item_batch = item_batch.reset_index(drop=True)
-        length = len(item_batch)
-        humidity = item_batch['出口水分'].values
-
-        stable_index = np.abs(humidity - setting) < MODEL_CRITERION
-        # No stable area in this batch
-        if np.sum(stable_index) == 0 or len(stable_index) < STABLE_WINDOWS_SIZE:
-            continue
-        stable_index = np.sum(rolling_window(stable_index, STABLE_WINDOWS_SIZE), axis=1)
-        stable_index = np.where(stable_index == STABLE_WINDOWS_SIZE)[0]
-
-        range_start = REACTION_LAG + SETTING_LAG + LABEL_RANGE + FEATURE_RANGE
-        range_end = length - STABLE_WINDOWS_SIZE
-
-        for stable_start in stable_index:
-            if stable_start < range_start or stable_start >= range_end:
-                continue
-            adjust_end = stable_start - REACTION_LAG - SETTING_LAG
-            adjust_start = adjust_end - LABEL_RANGE
-
-            # store feature
-            auxiliary_ = item_batch['出口水分差值'].values.ravel()[
-                         adjust_end: stable_start + STABLE_WINDOWS_SIZE: FURTHER_STEP]
-            brand_train_data.append(
-                np.concatenate([
-                    calc_feature(
-                        item_batch,
-                        adjust_start,
-                        FEATURE_RANGE,
-                        SPLIT_NUM
-                    ), auxiliary_, [setting], one_hot_brand
-                ])
-            )
-
-            # store label
-            brand_train_label.append(
-                calc_label(
-                    item_batch,
-                    adjust_start,
-                    adjust_end
-                )
-            )
-
-            # store mapping info
-            brand_mapping.append([
-                brand_index,
-                batch_index,
-                adjust_start,
-                adjust_end,
-                stable_start
-            ])
-
-            # store delta value
-            brand_delta.append(
-                calc_delta(
-                    item_batch,
-                    adjust_start,
-                    adjust_end
-                )
-            )
-
-    brand_train_data = np.array(brand_train_data)
-    brand_train_label = np.array(brand_train_label)
-    brand_mapping = np.array(brand_mapping)
-    brand_delta = np.array(brand_delta)
-
-    return brand_train_data, brand_train_label, brand_delta, brand_mapping,
-
-
-def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: dict, stage: str) -> Tuple[
-    np.array, np.array, np.array, np.array]:
-    """
-    generate training data and label for all brand
-    :param data_per_brand: all brand data
-    :param criterion: criterion for each brand
-    :param one_hot: one hot encode for each brand
-    :param stage: including 'transition', 'produce'
-    :return:
-        train_data: all training data, shape=(N, M),
-            which N denotes the number of training data, M denotes the number of feature
-        train_label: all training label, shape=(N, 2)
-        delta: delta info
-        mapping: mapping info
-    """
-    train_data_list = []
-    train_label_list = []
-    delta_list = []
-    mapping_list = []
-    if stage == 'produce':
-        for brand_index, brand in enumerate(data_per_brand):
-            start = datetime.now()
-
-            brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_produce_training_data(
-                data_per_brand[brand],
-                brand_index,
-                criterion[brand],
-                np.array(one_hot[brand])
-            )
-            train_data_list.append(brand_train_data)
-            train_label_list.append(brand_train_label)
-            delta_list.append(brand_delta)
-            mapping_list.append(brand_mapping)
-
-            if VERBOSE:
-                print('{}: len={}, time={}s'.format(brand, len(brand_train_data), (datetime.now() - start).seconds))
-        return concatenate(train_data_list), concatenate(train_label_list), concatenate(delta_list), concatenate(
-            mapping_list)
-
-    elif stage == 'transition':
-        for brand_index, brand in enumerate(data_per_brand):
-            start = datetime.now()
-
-            brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_transition_training_data(
-                data_per_brand[brand],
-                brand_index,
-                criterion[brand],
-                np.array(one_hot[brand])
-            )
-            train_data_list.append(brand_train_data)
-            train_label_list.append(brand_train_label)
-            delta_list.append(brand_delta)
-            mapping_list.append(brand_mapping)
-
-            if VERBOSE:
-                print('{}: len={}, time={}s'.format(brand, len(brand_train_data), (datetime.now() - start).seconds))
-        return concatenate(train_data_list), concatenate(train_label_list), concatenate(delta_list), concatenate(
-            mapping_list)
-    else:
-        raise Exception('stage must in [transition, produce], now is ' + str(stage))
-
-
 def concatenate(data_: list) -> np.array:
     """
     concatenate list with item of different length
@@ -452,65 +92,6 @@ def concatenate(data_: list) -> np.array:
         if len(data_[i]) is not 0:
             result = np.concatenate([result, data_[i]], axis=0)
     return result
-
-
-def predict_head(data_per_batch: pd.DataFrame, ratio: dict, stable_per_brand: dict) -> np.array:
-    """
-    predict in head stage
-    :param data_per_batch: one batch data
-    :param ratio: ratio
-    :param stable_per_brand: stable value for each brand
-    :return: predicted value in head stage
-    """
-    pass
-
-
-def generate_validation_data(data_per_batch: pd.DataFrame, stage: str) -> Tuple[np.array, np.array]:
-    """
-    generate real test data for one batch data at each time t
-    :param data_per_batch: one batch data
-    :param stage: including 'transition', 'produce'
-    :return:
-        final_X_test: shape=(N, M), which N denotes the number of training data, M denotes the number of feature
-        final_mapping: mapping info
-    """
-    final_X_test = []
-    final_mapping = []
-
-    if stage == 'transition':
-        data_per_batch = data_per_batch.iloc[STABLE_UNAVAILABLE: TRANSITION_SIZE]
-        length = len(data_per_batch)
-        for item_index in range(TRANSITION_FEATURE_RANGE, length, 1):
-            adjust_start = item_index
-
-            final_X_test.append(
-                calc_feature(
-                    data_per_batch,
-                    adjust_start,
-                    TRANSITION_FEATURE_RANGE,
-                    TRANSITION_SPLIT_NUM
-                )
-            )
-            final_mapping.append(adjust_start)
-        return np.array(final_X_test), np.array(final_mapping)
-    elif stage == 'produce':
-        data_per_batch = data_per_batch.iloc[TRANSITION_SIZE - FEATURE_RANGE:]
-        length = len(data_per_batch)
-        for item_index in range(FEATURE_RANGE, length, 1):
-            adjust_start = item_index
-
-            final_X_test.append(
-                calc_feature(
-                    data_per_batch,
-                    adjust_start,
-                    FEATURE_RANGE,
-                    SPLIT_NUM
-                )
-            )
-            final_mapping.append(adjust_start)
-        return np.array(final_X_test), np.array(final_mapping)
-    else:
-        raise Exception('stage must in [transition, produce], now is ' + str(stage))
 
 
 def clip(pred: np.array, criterion_1: float, criterion_2: float) -> np.array:
@@ -529,41 +110,25 @@ def clip(pred: np.array, criterion_1: float, criterion_2: float) -> np.array:
     return pred
 
 
-def adjust(pred: list, originals: list) -> list:
+def adjust(pred: list, original_humid: list, setting: float) -> list:
     """
     简单粗暴加个惩罚项，出口水分连续5个点超过了某个阈值，就加个惩罚项纠正下。
     :param pred:
-    :param originals: 出口水分的差值。
+    :param setting: 出口水分设定值
+    :param original_humid: 出口水分原始值
     :return:
     """
-    if len(originals) == 0:
+    if len(original_humid) == 0:
         return pred
-    if len(originals) != FEATURE_RANGE:
+    if len(original_humid) != FEATURE_RANGE:
         return pred
-    originalHumid = originals[-5:]
-    originalHumid = np.array(originalHumid)
+    original_humid = original_humid[-5:]
+    original_humid_diff = np.array([i - setting for i in original_humid])
     ratio = 0.6
-    if np.all(originalHumid > 0.05):
-        pred[0] += np.sum(originalHumid) * ratio
-        pred[1] += np.sum(originalHumid) * ratio
-    if np.all(originalHumid < 0.05):
-        pred[0] -= np.sum(originalHumid) * ratio
-        pred[1] -= np.sum(originalHumid) * ratio
+    if np.all(original_humid_diff > 0.05):
+        pred[0] += np.sum(original_humid_diff) * ratio
+        pred[1] += np.sum(original_humid_diff) * ratio
+    if np.all(original_humid_diff < 0.05):
+        pred[0] -= np.sum(original_humid_diff) * ratio
+        pred[1] -= np.sum(original_humid_diff) * ratio
     return pred
-
-
-def encode(brand_keys: list) -> dict:
-    """
-    encoder each brand (one hot)
-    :param brand_keys: all brand names
-    :return: dict(brand name, one hot encodes)
-    """
-    label_encoder = LabelEncoder()
-    integer_encoded = label_encoder.fit_transform(brand_keys)
-    one_hot_encoder = OneHotEncoder(sparse=False)
-    one_hot = one_hot_encoder.fit_transform(integer_encoded.reshape(-1, 1))
-
-    one_hot_dict = {}
-    for i in range(len(brand_keys)):
-        one_hot_dict[brand_keys[i]] = list(one_hot[i])
-    return one_hot_dict

@@ -2,10 +2,8 @@
 import logging
 
 from src.PythonDeviceControlLib.HSControl import *
-from src.manager.model_manager import load_current_model
+from src.manager.model_manager import load_current_model, Determiner
 from src.data_processing.processing import *
-from src.model.head import HeadModel
-from src.model.lr_model import LRModel
 from flask import Flask, jsonify, request
 import pandas as pd
 from src.config.config import MODEL_SAVE_DIR, Environment, ROOT_PATH
@@ -14,14 +12,13 @@ from src.utils.util import *
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 
-model_produce = LRModel()
-model_transition = LRModel()
-model_head = HeadModel()
+determiner = Determiner()
 one_hot = None
 previous_value = dict()
 environment = None
 failure = False
 brand_strict = True
+DEFAULT_BRAND = 'Txy###'
 
 # TODO: not hard code here
 criterion = {'Txy###': 12.699999999999994,
@@ -80,66 +77,27 @@ def check_dim(current: int, required: int):
 
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
-    try:
-        data = request.get_json()
-        keys = data.keys()
-        if 'time' not in keys or 'batch' not in keys or 'index' not in keys or 'stage' not in keys or 'brand' not in keys and 'features' not in keys:
-            logging.error('Param Error')
-            return 'Error'
+    data = request.get_json()
+    storm_time = int(time.time() * 1000)
+    time_ = data.get('time', 0)
+    window_time = data.get('window_time', 0)
+    model_time = data.get('model_time', 0)
+    kafka_time = data.get('kafka_time', 0)
+    batch = data.get('batch', None)
+    brand = data.get('brand', None)
+    features = data['features']
+    originals = data.get('originals', [])
 
-        storm_time = int(time.time() * 1000)
-        time_ = data['time']
-        window_time = data.get('window_time', 0)
-        model_time = data.get('model_time', 0)
-        kafka_time = data.get('kafka_time', 0)
-        batch = data['batch']
-        index = data['index']
-        stage = data['stage']
-        brand = data['brand']
-        features = data['features']
-        originals = []
-        device_status = ''
-        if 'originals' in keys:
-            originals = data['originals']
-        if 'device_status' in keys:
-            device_status = data['device_status']
-
-        auxiliary_ = get_auxiliary()
-    except Exception as e:
-        logging.error(e)
-        return
     if brand not in one_hot.keys():
         if brand_strict:
             logging.info('our model cannot handle new brand: ' + brand)
             return jsonify('our model cannot handle new brand: ' + brand)
         else:
-            brand = 'Txy###'
+            brand = DEFAULT_BRAND
 
-    if stage == 'produce':
-        try:
-            check_dim(len(features), len(feature_column) * 5 * SPLIT_NUM)
-        except Exception as e:
-            logging.error(e)
-            return jsonify(str(e))
-        else:
-            features = np.concatenate([features, auxiliary_, [criterion[brand]], one_hot[brand]])
-            pred = model_produce.predict(features)
-    elif stage == 'transition':
-        try:
-            check_dim(len(features), len(feature_column) * 5 * TRANSITION_SPLIT_NUM)
-        except Exception as e:
-            logging.error(e)
-            return jsonify(str(e))
-        else:
-            features = np.concatenate([features, auxiliary_, [criterion[brand]], one_hot[brand]])
-            pred = model_transition.predict(features)
-    elif stage == 'head':
-        pred = model_head.predict(brand, index)
-    else:
-        raise Exception('param error')
-
-    pred = pred.ravel()
-    pred = adjust(pred, originals)
+    features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
+    pred = determiner.dispatch(df=pd.DataFrame(), features=features)
+    pred = adjust(pred, originals['5H.5H.LD5_KL2226_TT1LastMoisPV'], criterion[brand])
     pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
     pred_time = int(time.time() * 1000)
 
@@ -200,7 +158,6 @@ def predict_api():
         'storm_time': storm_time,  # 数据从Storm过来的时间
         'pred_time': pred_time,  # 预测完成的时间
         'plc_time': int(time.time() * 1000),  # call plc返回后的的时间
-        'device_status': device_status,
         'version': '1.2'
     }
     logging_pred_in_disk(result)
@@ -274,6 +231,19 @@ def test_api():
     return jsonify(environment)
 
 
+@app.route('/api/get_strict_mode')
+def get_strict_mode():
+    return jsonify(brand_strict)
+
+
+@app.route('/api/change_strict_mode')
+def change_strict_mode():
+    strict_mode = request.args.get("strict_mode")
+    global brand_strict
+    brand_strict = strict_mode
+    return jsonify('OK')
+
+
 # 模拟异常产生
 @app.route('/api/mock_failure', methods=["GET"])
 def mock_failure_api():
@@ -298,9 +268,7 @@ def change_env_api():
     global environment
     environment = env
 
-    save_dict_to_txt(ROOT_PATH + '/src/config/env', {
-        'env': environment
-    })
+    save_config('env', environment)
     return jsonify('OK')
 
 
@@ -318,11 +286,8 @@ def api_load_model_config():
 
 if __name__ == '__main__':
     create_dir(MODEL_SAVE_DIR)
-    model_produce.load(MODEL_SAVE_DIR + load_current_model('produce'))
-    model_transition.load(MODEL_SAVE_DIR + load_current_model('transition'))
-    model_head.load(MODEL_SAVE_DIR + load_current_model('head'))
     one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
-    environment = read_txt_to_dict(ROOT_PATH + '/src/config/env')['env']
+    environment = read_config('env')
     print('Current model: ', load_current_model('produce').split('/')[0])
     print('Current env: ', environment)
     app.run(host='0.0.0.0', port=5000)

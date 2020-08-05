@@ -2,6 +2,8 @@ import os
 import time
 from datetime import datetime
 
+from src.config.config import ROOT_PATH
+
 
 def format_time(time_str: str):
     if type(time_str) != 'str':
@@ -32,3 +34,38 @@ def read_txt_to_dict(path: str) -> dict:
     dict_ = eval(f.read())
     f.close()
     return dict_
+
+
+def save_config(key: str, value: object):
+    config = read_txt_to_dict(ROOT_PATH + '/src/config/env')
+    config[key] = value
+    save_dict_to_txt(ROOT_PATH + '/src/config/env', config)
+
+
+def read_config(key: str) -> str:
+    """
+    在配置文件里面读取自定义的配置
+    :param key: 配置的名称
+    :return:
+    """
+    config = read_txt_to_dict(ROOT_PATH + '/src/config/env')
+    return config.get(key)
+
+
+def read_mapping():
+    mapping = {}
+    with open('/src/mapping.txt') as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.replace('\n', '')
+            mapping[line.split(',')[0]] = line.split(',')[1]
+    return mapping
+
+
+def name_list_2_plc_list(name_list):
+    return [NAME_TO_PLC[name] for name in name_list]
+
+
+# 读取Mapping关系
+PLC_TO_NAME = read_mapping()
+NAME_TO_PLC = {v: k for k, v in PLC_TO_NAME.items()}
