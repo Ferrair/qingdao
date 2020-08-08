@@ -1,7 +1,6 @@
 import numpy as np
 
-from src.config.config import MODEL_SAVE_DIR
-from src.manager.model_manager import FLOW_LIMIT, load_current_model
+from src.config.config import *
 from src.model.base import BasicModel
 from src.utils.util import save_dict_to_txt, read_txt_to_dict
 

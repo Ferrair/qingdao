@@ -38,7 +38,10 @@ def read_txt_to_dict(path: str) -> dict:
 
 def save_config(key: str, value: object):
     config = read_txt_to_dict(ROOT_PATH + '/src/config/env')
-    config[key] = value
+    if value:
+        config[key] = value
+    else:
+        del config[key]
     save_dict_to_txt(ROOT_PATH + '/src/config/env', config)
 
 
@@ -54,7 +57,7 @@ def read_config(key: str) -> str:
 
 def read_mapping():
     mapping = {}
-    with open('/src/mapping.txt') as f:
+    with open(ROOT_PATH + '/src/config/mapping.txt') as f:
         lines = f.readlines()
         for line in lines:
             line = line.replace('\n', '')

@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from src.manager.model_manager import FLOW_LIMIT
 from src.model.base import BasicModel
 
@@ -52,13 +54,13 @@ class TailModel(BasicModel):
     def check_model_state(self):
         pass
 
-    def predict(self, flow: int, last_temp_1: float, last_temp_2: float) -> list:
+    def predict(self, flow: int, last_temp_1: float, last_temp_2: float) -> Tuple[bool, list]:
         """
         predict in head stage
         :param last_temp_2: 上次的二区温度
         :param last_temp_1: 上次的一区温度
         :param flow: 流量
-        :return: predicted value
+        :return: 是否结束, predicted value
         """
         if flow >= self.flow_min_limit:
             raise Exception(
@@ -83,11 +85,15 @@ class TailModel(BasicModel):
                 last_temp_1 += self.rate
             if last_temp_2 - self.next_range_2 < self.rate:
                 last_temp_2 += self.rate
-            return [last_temp_1, last_temp_2]
+
+            if last_temp_1 - self.next_range_1 >= self.rate and last_temp_2 - self.next_range_2 > self.rate:
+                return True, [last_temp_1, last_temp_2]
+            else:
+                return False, [last_temp_1, last_temp_2]
 
         # 2. 降到最低点，持续一段时间
         if last_temp_2 - self.plain_temp <= self.rate and last_temp_1 - self.plain_temp <= self.rate:
             self.plain_timer += 1
 
         self.timer += 1
-        return [last_temp_1, last_temp_2]
+        return False, [last_temp_1, last_temp_2]

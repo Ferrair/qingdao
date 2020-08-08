@@ -75,6 +75,21 @@ def check_dim(current: int, required: int):
         raise Exception('len(features) wrong, excepted=' + str(required) + ' current=' + str(current))
 
 
+def gen_dataframe(originals: list) -> pd.DataFrame:
+    """
+    将传过来的数据 构造成DataFrame
+    :param originals:
+    :return:
+    """
+    if not originals:
+        return pd.DataFrame()
+    columns = originals[0].keys()
+    data = []
+    for item in originals:
+        data.append(list(item.values()))
+    return pd.DataFrame(data, columns=columns)
+
+
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
     data = request.get_json()
@@ -96,10 +111,18 @@ def predict_api():
             brand = DEFAULT_BRAND
 
     features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
-    pred = determiner.dispatch(df=pd.DataFrame(), features=features)
-    pred = adjust(pred, originals['5H.5H.LD5_KL2226_TT1LastMoisPV'], criterion[brand])
-    pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
-    pred_time = int(time.time() * 1000)
+    df = gen_dataframe(originals)
+
+    try:
+        pred = determiner.dispatch(df=df, features=features)
+        pred = adjust(pred, [x['5H.5H.LD5_KL2226_TT1LastMoisPV'] for x in originals], criterion[brand])
+        pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+        pred_time = int(time.time() * 1000)
+    except Exception as e:
+        logging.error(e)
+        # TODO
+        # 模型报错，需要发送通知
+        return 'Error'
 
     if environment == Environment.PROD and not failure:
         try:

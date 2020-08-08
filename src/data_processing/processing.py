@@ -120,8 +120,8 @@ def adjust(pred: list, original_humid: list, setting: float) -> list:
     """
     if len(original_humid) == 0:
         return pred
-    if len(original_humid) != FEATURE_RANGE:
-        return pred
+    # if len(original_humid) != FEATURE_RANGE:
+    #    return pred
     original_humid = original_humid[-5:]
     original_humid_diff = np.array([i - setting for i in original_humid])
     ratio = 0.6
