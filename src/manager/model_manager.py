@@ -135,6 +135,7 @@ class Determiner:
                     raise Exception('Find invalid work status.')
 
             if self.head_flag:
+                logging.info('Current in Head Model.')
                 pred = self.head_model.predict(brand=current_data[BRADN], flow=current_data[FLOW],
                                                humid_after_cut=sum(self.humid_after_cut) / len(self.humid_after_cut),
                                                last_temp_1=current_data[TEMP1], last_temp_2=current_data[TEMP2])
@@ -143,10 +144,12 @@ class Determiner:
 
             if self.produce_flag:
                 # TODO: transition model 没有使用
+                logging.info('Current in Produce Model.')
                 pred = self.produce_model.predict(features)
                 return list(pred.ravel())
 
             if self.tail_flag:
+                logging.info('Current in Tail Model.')
                 finish, pred = self.tail_model.predict(flow=current_data[FLOW],
                                                        last_temp_1=current_data[TEMP1],
                                                        last_temp_2=current_data[TEMP2])
