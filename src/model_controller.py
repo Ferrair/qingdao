@@ -94,7 +94,7 @@ def wrap_success(data):
     return jsonify({
         "data": data,
         "code": 0,
-        "msg": 'success',
+        "msg": 'success'
     })
 
 
@@ -102,7 +102,7 @@ def wrap_failure(code, msg):
     return jsonify({
         "data": None,
         "code": code,
-        "msg": msg,
+        "msg": msg
     })
 
 
@@ -146,9 +146,10 @@ def predict_api():
         else:
             brand = DEFAULT_BRAND
     # len = 1650
-    if len(features) != 0 or len(features) != len(feature_name_columns) * 5 * SPLIT_NUM:
-        return wrap_failure(5, 'len(features) should equals {}, current: {}'.format(
-            len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
+    if len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
+        if len(features) != 0:
+            return wrap_failure(5, 'len(features) should equals {}, current: {}'.format(
+                len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
     features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
     df = gen_dataframe(originals)
 
