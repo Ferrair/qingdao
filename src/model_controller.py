@@ -333,14 +333,15 @@ def change_env_api():
 
 @app.route('/api/load_model_config')
 def api_load_model_config():
-    stage = request.args.get("stage")
-    if stage == 'produce':
-        return jsonify({'window_size': FEATURE_RANGE, 'block_size': int(FEATURE_RANGE / SPLIT_NUM)})
-    elif stage == 'transition':
-        return jsonify({'window_size': TRANSITION_FEATURE_RANGE,
-                        'block_size': int(TRANSITION_FEATURE_RANGE / TRANSITION_SPLIT_NUM)})
-    else:
-        raise Exception('param error')
+    return jsonify({'window_size': FEATURE_RANGE, 'block_size': int(FEATURE_RANGE / SPLIT_NUM)})
+    # stage = request.args.get("stage")
+    # if stage == 'produce':
+    # return jsonify({'window_size': FEATURE_RANGE, 'block_size': int(FEATURE_RANGE / SPLIT_NUM)})
+    # elif stage == 'transition':
+    #    return jsonify({'window_size': TRANSITION_FEATURE_RANGE,
+    #                    'block_size': int(TRANSITION_FEATURE_RANGE / TRANSITION_SPLIT_NUM)})
+    # else:
+    #    raise Exception('param error')
 
 
 if __name__ == '__main__':
