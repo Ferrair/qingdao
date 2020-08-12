@@ -93,15 +93,23 @@ def gen_dataframe(originals: list) -> pd.DataFrame:
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
     data = request.get_json()
-    storm_time = int(time.time() * 1000)
-    time_ = data.get('time', 0)
-    window_time = data.get('window_time', 0)
-    model_time = data.get('model_time', 0)
-    kafka_time = data.get('kafka_time', 0)
-    batch = data.get('batch', None)
-    brand = data.get('brand', None)
+    pred_start_time = int(time.time() * 1000)
+    sample_time = data.get('time', 0)
+    # storm_time = int(time.time() * 1000)
+    # window_time = data.get('window_time', 0)
+    # model_time = data.get('model_time', 0)
+    # kafka_time = data.get('kafka_time', 0)
+    # batch = data.get('batch', None)
+    # brand = data.get('brand', None)
     features = data['features']
     originals = data.get('originals', [])
+    if len(originals) == 0:
+        logging.error('len(originals) == 0')
+        return jsonify('len(originals) == 0')
+
+    current_data = originals[len(originals) - 1]
+    brand = current_data['6032.6032.LD5_YT603_2B_YS2ROASTBRAND']
+    batch = current_data['6032.6032.LD5_YT603_2B_YS2ROASTBATCHNO']
 
     if brand not in one_hot.keys():
         if brand_strict:
@@ -117,7 +125,7 @@ def predict_api():
         pred = determiner.dispatch(df=df, features=features)
         pred = adjust(pred, [x['5H.5H.LD5_KL2226_TT1LastMoisPV'] for x in originals], criterion[brand])
         pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
-        pred_time = int(time.time() * 1000)
+        pred_end_time = int(time.time() * 1000)
     except Exception as e:
         logging.error(e)
         # TODO
@@ -174,13 +182,10 @@ def predict_api():
         'batch': batch,
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
-        'time': time_,  # 采样数据的采样时间
-        'window_time': window_time,  # 进行Windows划分后的时间
-        'model_time': model_time,  # 继续特征计算的时间
-        'kafka_time': kafka_time,  # 从Kafka得到数据的时间
-        'storm_time': storm_time,  # 数据从Storm过来的时间
-        'pred_time': pred_time,  # 预测完成的时间
-        'plc_time': int(time.time() * 1000),  # call plc返回后的的时间
+        'time': sample_time,  # 采样数据的采样时间
+        'upstream_comsume': pred_start_time - sample_time,  # 所有上游任务消耗的时间
+        'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间
+        'plc_consume': int(time.time() * 1000) - pred_end_time,  # call plc 消耗的时间
         'version': '1.2'
     }
     logging_pred_in_disk(result)

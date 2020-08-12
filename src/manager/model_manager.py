@@ -78,12 +78,12 @@ class Determiner:
         len_ = len(df)
         if len_ <= MIN_DATA_NUM:
             return []
-        try:
-            current_data = df.iloc[len_ - 1]  # 最新的一条数据
-            last_data = df.iloc[len_ - 2]  # 上一秒一条数据
-            current_batch = read_config('current_batch')
-            # current_batch = None
+        current_data = df.iloc[len_ - 1]  # 最新的一条数据
+        last_data = df.iloc[len_ - 2]  # 上一秒一条数据
+        current_batch = read_config('current_batch')
+        # current_batch = None
 
+        try:
             # 计算切后水分，只选取 5000叶丝线暂存柜半满 后的三分钟的数据
             if current_data[CUT_HALF_FULL]:
                 self.cut_half_full_flag = True
@@ -156,3 +156,4 @@ class Determiner:
         except Exception as e:
             logging.error(e)
             save_config('current_batch', None)
+            return [current_data[TEMP1], current_data[TEMP2]]
