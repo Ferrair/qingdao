@@ -106,6 +106,16 @@ def wrap_failure(code, msg):
     })
 
 
+def format_originals(originals):
+    new_originals = []
+    for original in originals:
+        new_original = {}
+        for item in original:
+            new_original[item['id']] = item['v']
+        new_originals.append(new_original)
+    return new_originals
+
+
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
     data = request.get_json()
@@ -119,6 +129,8 @@ def predict_api():
     # brand = data.get('brand', None)
     features = data['features']
     originals = data.get('originals', [])
+    originals = format_originals(originals)
+
     if len(originals) == 0:
         logging.error('len(originals) == 0')
         return wrap_failure(1, 'len(originals) == 0')
