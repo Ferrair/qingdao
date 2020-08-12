@@ -199,7 +199,7 @@ def predict_api():
         'tempRegion1': pred[0],
         'tempRegion2': pred[1],
         'time': sample_time,  # 采样数据的采样时间
-        'upstream_comsume': pred_start_time - sample_time,  # 所有上游任务消耗的时间
+        'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间
         'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间
         'plc_consume': int(time.time() * 1000) - pred_end_time,  # call plc 消耗的时间
         'version': '1.2'
