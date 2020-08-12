@@ -134,7 +134,7 @@ def predict_api():
         else:
             brand = DEFAULT_BRAND
     # len = 1650
-    if len(features) != len(feature_name_columns) * 5 * SPLIT_NUM:
+    if len(features) != 0 or len(features) != len(feature_name_columns) * 5 * SPLIT_NUM:
         return wrap_failure(5, 'len(features) should equals {}, current: {}'.format(
             len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
     features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
