@@ -2,6 +2,7 @@
 import logging
 
 from src.PythonDeviceControlLib.HSControl import *
+from src.config.error_code import *
 from src.manager.model_manager import load_current_model, Determiner
 from src.data_processing.processing import *
 from flask import Flask, jsonify, request
@@ -127,13 +128,13 @@ def predict_api():
     # kafka_time = data.get('kafka_time', 0)
     # batch = data.get('batch', None)
     # brand = data.get('brand', None)
-    features = data['features']
+    features = data.get('features', [])
     originals = data.get('originals', [])
     originals = format_originals(originals)
 
     if len(originals) == 0:
         logging.error('len(originals) == 0')
-        return wrap_failure(1, 'len(originals) == 0')
+        return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
 
     current_data = originals[len(originals) - 1]
     brand = current_data['6032.6032.LD5_YT603_2B_YS2ROASTBRAND']
@@ -142,16 +143,17 @@ def predict_api():
     if brand not in one_hot.keys():
         if brand_strict:
             logging.info('our model cannot handle new brand: ' + brand)
-            return wrap_failure(2, 'our model cannot handle new brand: ' + brand)
+            return wrap_failure(NEW_BRAND_ERROR, 'our model cannot handle new brand: ' + brand)
         else:
             brand = DEFAULT_BRAND
     # len = 1650
-    if len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
-        if len(features) != 0:
-            return wrap_failure(5, 'len(features) should equals {}, current: {}'.format(
-                len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
+    if len(features) != 0 and len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
+        return wrap_failure(PARAMETERS_ERROR, 'len(features) should equals {}, current: {}'.format(
+            len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
     features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
     df = gen_dataframe(originals)
+
+    logging.info('Start pred with len(features) = {}, len(originals) = {}'.format(len(features), len(originals)))
 
     try:
         pred = determiner.dispatch(df=df, features=features)
@@ -162,7 +164,7 @@ def predict_api():
         logging.error(e)
         # TODO
         # 模型报错，需要发送通知
-        return wrap_failure(3, 'Predict failure')
+        return wrap_failure(MODEL_ERROR, 'Predict failure')
 
     if environment == Environment.PROD and not failure:
         try:
@@ -184,7 +186,7 @@ def predict_api():
         except Exception as e:
             logging.error(e)
             logging_in_disk(e)
-            return wrap_failure(4, 'Call PLC failure')
+            return wrap_failure(PLC_ERROR, 'Call PLC failure')
     elif environment == Environment.TEST and not failure:
         try:
             roll_back = False
@@ -205,21 +207,22 @@ def predict_api():
         except Exception as e:
             logging.error(e)
             logging_in_disk(e)
-            return wrap_failure(4, 'Call PLC failure')
+            return wrap_failure(PLC_ERROR, 'Call PLC failure')
     elif environment == Environment.NONE:
         pass
 
     result = {
-        'brand': brand,
-        'batch': batch,
-        'tempRegion1': pred[0],
-        'tempRegion2': pred[1],
-        'time': sample_time,  # 采样数据的采样时间
-        'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间
-        'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间
-        'plc_consume': int(time.time() * 1000) - pred_end_time,  # call plc 消耗的时间
+        'brand': brand,  # str
+        'batch': batch,  # str
+        'tempRegion1': pred[0],  # float
+        'tempRegion2': pred[1],  # float
+        'time': sample_time,  # 采样数据的采样时间 # float
+        'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间 # float
+        'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间 # float
+        'plc_consume': int(time.time() * 1000) - pred_end_time,  # call plc 消耗的时间 # float
         'version': 'v2020.08.12'
     }
+    logging.info('Pred success: {}, {}'.format(pred[0], pred[1]))
     logging_pred_in_disk(result)
     return wrap_success(result)
 
