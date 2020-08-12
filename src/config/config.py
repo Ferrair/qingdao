@@ -20,7 +20,7 @@ WORK_STATUS = '5H.5H.LD5_KL2226_PHASE1'
 
 HUMID_AFTER_CUT_RANGE = 180  # 选取这么多时间的切丝后出口水分平均值
 FLOW_LIMIT = 2000  # 流量判断
-MIN_DATA_NUM = 10  # 最少的数据限制
+MIN_DATA_NUM = 2  # 最少的数据限制
 HUMID_EPSILON = 0.1  # 低于这个出口水分，几乎就为0，为了防止误差的
 HEAD_MAX_TIME = 300  # 头料阶段最大时间，大于这个时间就当做生产状态了
 

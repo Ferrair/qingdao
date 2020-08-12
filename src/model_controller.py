@@ -64,7 +64,7 @@ def get_auxiliary() -> list:
     """
     get auxiliary list in test phase
     """
-    return [0] * int((REACTION_LAG + SETTING_LAG + STABLE_WINDOWS_SIZE) / FURTHER_STEP)
+    return [0] * 7
 
 
 def check_dim(current: int, required: int):
@@ -133,7 +133,10 @@ def predict_api():
             return wrap_failure(2, 'our model cannot handle new brand: ' + brand)
         else:
             brand = DEFAULT_BRAND
-
+    # len = 1650
+    if len(features) != len(feature_name_columns) * 5 * SPLIT_NUM:
+        return wrap_failure(5, 'len(features) should equals {}, current: {}'.format(
+            len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
     features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
     df = gen_dataframe(originals)
 
@@ -202,7 +205,7 @@ def predict_api():
         'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间
         'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间
         'plc_consume': int(time.time() * 1000) - pred_end_time,  # call plc 消耗的时间
-        'version': '1.2'
+        'version': 'v2020.08.12'
     }
     logging_pred_in_disk(result)
     return wrap_success(result)
