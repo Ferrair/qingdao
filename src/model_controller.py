@@ -90,6 +90,22 @@ def gen_dataframe(originals: list) -> pd.DataFrame:
     return pd.DataFrame(data, columns=columns)
 
 
+def wrap_success(data):
+    return jsonify({
+        "data": data,
+        "code": 0,
+        "msg": 'success',
+    })
+
+
+def wrap_failure(code, msg):
+    return jsonify({
+        "data": None,
+        "code": code,
+        "msg": msg,
+    })
+
+
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
     data = request.get_json()
@@ -105,7 +121,7 @@ def predict_api():
     originals = data.get('originals', [])
     if len(originals) == 0:
         logging.error('len(originals) == 0')
-        return jsonify('len(originals) == 0')
+        return wrap_failure(1, 'len(originals) == 0')
 
     current_data = originals[len(originals) - 1]
     brand = current_data['6032.6032.LD5_YT603_2B_YS2ROASTBRAND']
@@ -114,7 +130,7 @@ def predict_api():
     if brand not in one_hot.keys():
         if brand_strict:
             logging.info('our model cannot handle new brand: ' + brand)
-            return jsonify('our model cannot handle new brand: ' + brand)
+            return wrap_failure(2, 'our model cannot handle new brand: ' + brand)
         else:
             brand = DEFAULT_BRAND
 
@@ -130,7 +146,7 @@ def predict_api():
         logging.error(e)
         # TODO
         # 模型报错，需要发送通知
-        return 'Error'
+        return wrap_failure(3, 'Predict failure')
 
     if environment == Environment.PROD and not failure:
         try:
@@ -152,7 +168,7 @@ def predict_api():
         except Exception as e:
             logging.error(e)
             logging_in_disk(e)
-            return 'Error'
+            return wrap_failure(4, 'Call PLC failure')
     elif environment == Environment.TEST and not failure:
         try:
             roll_back = False
@@ -173,7 +189,7 @@ def predict_api():
         except Exception as e:
             logging.error(e)
             logging_in_disk(e)
-            return 'Error'
+            return wrap_failure(4, 'Call PLC failure')
     elif environment == Environment.NONE:
         pass
 
@@ -189,7 +205,7 @@ def predict_api():
         'version': '1.2'
     }
     logging_pred_in_disk(result)
-    return jsonify(result)
+    return wrap_success(result)
 
 
 def logging_pred_in_disk(s):

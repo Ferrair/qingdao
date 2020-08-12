@@ -138,6 +138,7 @@ class Determiner:
                 pred = self.head_model.predict(brand=current_data[BRADN], flow=current_data[FLOW],
                                                humid_after_cut=sum(self.humid_after_cut) / len(self.humid_after_cut),
                                                last_temp_1=current_data[TEMP1], last_temp_2=current_data[TEMP2])
+                logging.info('Head timer: {}'.format(self.head_model.timer))
                 return list(pred)
 
             if self.produce_flag:
@@ -152,6 +153,7 @@ class Determiner:
                 # TODO: 逻辑还需要在处理下
                 # if finish:
                 #    save_config('current_batch', None)
+                logging.info('Tail timer: {}'.format(self.tail_model.timer))
                 return list(pred)
         except Exception as e:
             logging.error(e)
