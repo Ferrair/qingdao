@@ -7,7 +7,7 @@ from src.manager.model_manager import load_current_model, Determiner
 from src.data_processing.processing import *
 from flask import Flask, jsonify, request
 import pandas as pd
-from src.config.config import MODEL_SAVE_DIR, Environment, ROOT_PATH
+from src.config.config import *
 from src.utils.util import *
 
 app = Flask(__name__)
@@ -168,8 +168,11 @@ def predict_api():
 
     try:
         pred = determiner.dispatch(df=df, features=features)
-        pred = adjust(pred, [x['5H.5H.LD5_KL2226_TT1LastMoisPV'] for x in originals], criterion[brand])
-        pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+        # 只有在生产阶段，才做这些操作
+        if determiner.produce_flag:
+            pred = adjust(pred, [x['5H.5H.LD5_KL2226_TT1LastMoisPV'] for x in originals], criterion[brand])
+            pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+        pred = clip_last(pred, current_data[TEMP1], current_data[TEMP2])
         pred_end_time = int(time.time() * 1000)
     except Exception as e:
         logging.error(e)

@@ -94,6 +94,15 @@ def concatenate(data_: list) -> np.array:
     return result
 
 
+def clip_last(pred: np.array, last_temp_1: float, last_temp_2: float) -> np.array:
+    if len(pred) is not 2:
+        raise Exception('Predicted value MUST have 2 value')
+    bound = 0.5
+    pred[0] = np.clip(pred[0], last_temp_1 - bound, last_temp_1 + bound)
+    pred[1] = np.clip(pred[1], last_temp_2 - bound, last_temp_2 + bound)
+    return pred
+
+
 def clip(pred: np.array, criterion_1: float, criterion_2: float) -> np.array:
     """
     clip the predicted to avoid over-estimated
