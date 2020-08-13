@@ -143,8 +143,8 @@ def predict_api():
         return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
 
     current_data = originals[len(originals) - 1]
-    brand = current_data['6032.6032.LD5_YT603_2B_YS2ROASTBRAND']
-    batch = current_data['6032.6032.LD5_YT603_2B_YS2ROASTBATCHNO']
+    brand = current_data[BRADN]
+    batch = current_data[BATCH]
 
     if brand not in one_hot.keys():
         if brand_strict:
@@ -170,7 +170,7 @@ def predict_api():
         pred = determiner.dispatch(df=df, features=features)
         # 只有在生产阶段，才做这些操作
         if determiner.produce_flag:
-            pred = adjust(pred, [x['5H.5H.LD5_KL2226_TT1LastMoisPV'] for x in originals], criterion[brand])
+            pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
             pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
         pred = clip_last(pred, current_data[TEMP1], current_data[TEMP2])
         pred_end_time = int(time.time() * 1000)
