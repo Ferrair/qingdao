@@ -117,6 +117,12 @@ def format_originals(originals):
     return new_originals
 
 
+def add_random(pred):
+    # FOR TEST USE ONLY
+    import random
+    return [pred[0] + random.random() / 2, pred[1] + random.random() / 2]
+
+
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
     data = request.get_json()
@@ -166,51 +172,52 @@ def predict_api():
         # 模型报错，需要发送通知
         return wrap_failure(MODEL_ERROR, 'Predict failure')
 
-    if environment == Environment.PROD and not failure:
-        try:
-            roll_back = False
-            res = set_prod([str(pred[0]), str(pred[1])])
-            logging.info(res)
-            logging_in_disk(res)
-            for r in res:
-                roll_back = roll_back or not r['IsSetSuccessful']
-                if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
-                    previous_value['T1'] = r['PreviousValue']
-                elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
-                    previous_value['T2'] = r['PreviousValue']
+    # if environment == Environment.PROD and not failure:
+    #     try:
+    #         roll_back = False
+    #         res = set_prod([str(pred[0]), str(pred[1])])
+    #         logging.info(res)
+    #         logging_in_disk(res)
+    #         for r in res:
+    #             roll_back = roll_back or not r['IsSetSuccessful']
+    #             if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
+    #                 previous_value['T1'] = r['PreviousValue']
+    #             elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
+    #                 previous_value['T2'] = r['PreviousValue']
+    #
+    #         if roll_back:
+    #             res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
+    #             logging.info(res)
+    #             logging_in_disk(res)
+    #     except Exception as e:
+    #         logging.error(e)
+    #         logging_in_disk(e)
+    #         return wrap_failure(PLC_ERROR, 'Call PLC failure')
+    # elif environment == Environment.TEST and not failure:
+    #     try:
+    #         roll_back = False
+    #         res = set_test([str(pred[0]), str(pred[1])])
+    #         logging.info(res)
+    #         logging_in_disk(res)
+    #         for r in res:
+    #             roll_back = roll_back or not r['IsSetSuccessful']
+    #             if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
+    #                 previous_value['T1'] = r['PreviousValue']
+    #             elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
+    #                 previous_value['T2'] = r['PreviousValue']
+    #
+    #         if roll_back:
+    #             res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
+    #             logging.info(res)
+    #             logging_in_disk(res)
+    #     except Exception as e:
+    #         logging.error(e)
+    #         logging_in_disk(e)
+    #         return wrap_failure(PLC_ERROR, 'Call PLC failure')
+    # elif environment == Environment.NONE:
+    #     pass
 
-            if roll_back:
-                res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
-                logging.info(res)
-                logging_in_disk(res)
-        except Exception as e:
-            logging.error(e)
-            logging_in_disk(e)
-            return wrap_failure(PLC_ERROR, 'Call PLC failure')
-    elif environment == Environment.TEST and not failure:
-        try:
-            roll_back = False
-            res = set_test([str(pred[0]), str(pred[1])])
-            logging.info(res)
-            logging_in_disk(res)
-            for r in res:
-                roll_back = roll_back or not r['IsSetSuccessful']
-                if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
-                    previous_value['T1'] = r['PreviousValue']
-                elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
-                    previous_value['T2'] = r['PreviousValue']
-
-            if roll_back:
-                res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
-                logging.info(res)
-                logging_in_disk(res)
-        except Exception as e:
-            logging.error(e)
-            logging_in_disk(e)
-            return wrap_failure(PLC_ERROR, 'Call PLC failure')
-    elif environment == Environment.NONE:
-        pass
-
+    pred = add_random(pred)
     result = {
         'brand': brand,  # str
         'batch': batch,  # str
