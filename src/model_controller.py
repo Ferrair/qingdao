@@ -156,6 +156,11 @@ def predict_api():
     if len(features) != 0 and len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
         return wrap_failure(PARAMETERS_ERROR, 'len(features) should equals {}, current: {}'.format(
             len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
+
+    # check nan in features
+    if sum(np.isnan(features)) > 0:
+        return wrap_failure(PARAMETERS_ERROR, 'features contains nan')
+
     features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
     df = gen_dataframe(originals)
 

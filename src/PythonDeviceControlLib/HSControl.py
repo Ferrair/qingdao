@@ -46,7 +46,7 @@ def reset_prod(values: list):
 
 
 def set_test(values: list):
-    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5H_5H_LD5_TEST_RESET_ALL, values)
+    res = handler.RunPLCCommand(DeviceCommandTypes.ML_5H_5H_LD5_TEST_SET_ALL, values)
     res = json.loads(res.decode())
     return res
 
