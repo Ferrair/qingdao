@@ -250,8 +250,13 @@ def manual_set_api():
         return jsonify("Fail")
 
 
+@app.route('/api/healthz')
+def healthz_api():
+    return jsonify(wrap_success('OK'))
+
+
 @app.route('/api/get_environment')
-def get_environment():
+def get_environment_api():
     warnings.warn("get_environment is deprecated", DeprecationWarning)
     return jsonify(environment)
 
