@@ -1,5 +1,6 @@
 # -*- coding:UTF-8 -*-
 import logging
+import warnings
 
 from src.PythonDeviceControlLib.HSControl import *
 from src.config.error_code import *
@@ -53,27 +54,11 @@ def api_select_current_model_name():
     return current_model_name
 
 
-def train_val_model():
-    pass
-
-
-def validate(data_per_batch: pd.DataFrame) -> np.array:
-    pass
-
-
 def get_auxiliary() -> list:
     """
     get auxiliary list in test phase
     """
     return [0] * 7
-
-
-def check_dim(current: int, required: int):
-    """
-    检查传入features的维度
-    """
-    if current != required:
-        raise Exception('len(features) wrong, excepted=' + str(required) + ' current=' + str(current))
 
 
 def gen_dataframe(originals: list) -> pd.DataFrame:
@@ -224,6 +209,7 @@ def logging_in_disk(s):
 
 @app.route('/api/manual_reset', methods=["POST"])
 def manual_reset_api():
+    warnings.warn("manual_reset_api is deprecated", DeprecationWarning)
     data = request.get_json()
     T1 = data.get('T1', 135)
     T2 = data.get('T2', 120)
@@ -241,6 +227,7 @@ def manual_reset_api():
 
 @app.route('/api/manual_set', methods=["POST"])
 def manual_set_api():
+    warnings.warn("manual_set_api is deprecated", DeprecationWarning)
     data = request.get_json()
     try:
         T1 = data['T1']
@@ -264,17 +251,20 @@ def manual_set_api():
 
 
 @app.route('/api/get_environment')
-def test_api():
+def get_environment():
+    warnings.warn("get_environment is deprecated", DeprecationWarning)
     return jsonify(environment)
 
 
 @app.route('/api/get_strict_mode')
-def get_strict_mode():
+def get_strict_mode_api():
+    warnings.warn("get_strict_mode_api is deprecated", DeprecationWarning)
     return jsonify(brand_strict)
 
 
 @app.route('/api/change_strict_mode')
-def change_strict_mode():
+def change_strict_mode_api():
+    warnings.warn("change_strichange_strict_mode_apideprecated", DeprecationWarning)
     strict_mode = request.args.get("strict_mode")
     global brand_strict
     brand_strict = strict_mode
@@ -284,6 +274,7 @@ def change_strict_mode():
 # 模拟异常产生
 @app.route('/api/mock_failure', methods=["GET"])
 def mock_failure_api():
+    warnings.warn("mock_failure_api is deprecated", DeprecationWarning)
     global failure
     failure = True
     return jsonify('mocked failure is trigger. {}'.format(failure))
@@ -292,6 +283,7 @@ def mock_failure_api():
 # 恢复生产
 @app.route('/api/reset_prod', methods=["GET"])
 def reset_prod_api():
+    warnings.warn("reset_prod_api is deprecated", DeprecationWarning)
     global failure
     failure = False
     return jsonify('reset_prod is trigger. {}'.format(failure))
@@ -299,6 +291,7 @@ def reset_prod_api():
 
 @app.route('/api/change_env')
 def change_env_api():
+    warnings.warn("change_env_api is deprecated", DeprecationWarning)
     env = request.args.get("env")
     if env != Environment.NONE and env != Environment.PROD and env != Environment.TEST:
         return jsonify('Error')
@@ -310,7 +303,7 @@ def change_env_api():
 
 
 @app.route('/api/load_model_config')
-def api_load_model_config():
+def load_model_config_api():
     return jsonify({'window_size': FEATURE_RANGE, 'block_size': int(FEATURE_RANGE / SPLIT_NUM)})
     # stage = request.args.get("stage")
     # if stage == 'produce':
@@ -323,7 +316,7 @@ def api_load_model_config():
 
 
 @app.route('/api/load_temp_criterion')
-def api_load_model_config():
+def load_temp_criterion_api():
     return jsonify({'temp1_criterion': temp1_criterion, 'temp2_criterion': temp2_criterion})
 
 
