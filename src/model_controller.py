@@ -123,17 +123,10 @@ def add_random(pred):
     return [pred[0] + random.random() / 2, pred[1] + random.random() / 2]
 
 
-@app.route('/api/predict', methods=["POST"])
-def predict_api():
+def _predict():
     data = request.get_json()
     pred_start_time = int(time.time() * 1000)
     sample_time = data.get('time', 0)
-    # storm_time = int(time.time() * 1000)
-    # window_time = data.get('window_time', 0)
-    # model_time = data.get('model_time', 0)
-    # kafka_time = data.get('kafka_time', 0)
-    # batch = data.get('batch', None)
-    # brand = data.get('brand', None)
     features = data.get('features', [])
     originals = data.get('originals', [])
     originals = format_originals(originals)
@@ -168,64 +161,21 @@ def predict_api():
 
     try:
         pred = determiner.dispatch(df=df, features=features)
+        logging.info('Pred before adjust: {}, {}'.format(pred[0], pred[1]))
         # 只有在生产阶段，才做这些操作
         if determiner.produce_flag:
             pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
             pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
         pred = clip_last(pred, current_data[TEMP1], current_data[TEMP2])
+        pred = add_random(pred)
+        logging.info('Pred after adjust: {}, {}'.format(pred[0], pred[1]))
         pred_end_time = int(time.time() * 1000)
     except Exception as e:
         logging.error(e)
         # TODO
         # 模型报错，需要发送通知
-        return wrap_failure(MODEL_ERROR, 'Predict failure')
+        return wrap_failure(MODEL_ERROR, 'Predict failure: {}'.format(e))
 
-    # if environment == Environment.PROD and not failure:
-    #     try:
-    #         roll_back = False
-    #         res = set_prod([str(pred[0]), str(pred[1])])
-    #         logging.info(res)
-    #         logging_in_disk(res)
-    #         for r in res:
-    #             roll_back = roll_back or not r['IsSetSuccessful']
-    #             if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
-    #                 previous_value['T1'] = r['PreviousValue']
-    #             elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
-    #                 previous_value['T2'] = r['PreviousValue']
-    #
-    #         if roll_back:
-    #             res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
-    #             logging.info(res)
-    #             logging_in_disk(res)
-    #     except Exception as e:
-    #         logging.error(e)
-    #         logging_in_disk(e)
-    #         return wrap_failure(PLC_ERROR, 'Call PLC failure')
-    # elif environment == Environment.TEST and not failure:
-    #     try:
-    #         roll_back = False
-    #         res = set_test([str(pred[0]), str(pred[1])])
-    #         logging.info(res)
-    #         logging_in_disk(res)
-    #         for r in res:
-    #             roll_back = roll_back or not r['IsSetSuccessful']
-    #             if r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp1':
-    #                 previous_value['T1'] = r['PreviousValue']
-    #             elif r['Address'] == '5H.5H.LD5_KL2226_TT1StandardTemp2':
-    #                 previous_value['T2'] = r['PreviousValue']
-    #
-    #         if roll_back:
-    #             res = reset_prod([str(previous_value['T1']), str(previous_value['T2'])])
-    #             logging.info(res)
-    #             logging_in_disk(res)
-    #     except Exception as e:
-    #         logging.error(e)
-    #         logging_in_disk(e)
-    #         return wrap_failure(PLC_ERROR, 'Call PLC failure')
-    # elif environment == Environment.NONE:
-    #     pass
-
-    pred = add_random(pred)
     result = {
         'brand': brand,  # str
         'batch': batch,  # str
@@ -234,12 +184,21 @@ def predict_api():
         'time': sample_time,  # 采样数据的采样时间 # float
         'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间 # float
         'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间 # float
-        'plc_consume': int(time.time() * 1000) - pred_end_time,  # call plc 消耗的时间 # float
+        'plc_consume': 0,  # call plc 消耗的时间 # float
         'version': 'v2020.08.12'
     }
     logging.info('Pred success: {}, {}'.format(pred[0], pred[1]))
     logging_pred_in_disk(result)
     return wrap_success(result)
+
+
+@app.route('/api/predict', methods=["POST"])
+def predict_api():
+    try:
+        return _predict()
+    except Exception as e:
+        logging.error(e)
+        return wrap_failure(999, 'Unknown error {}'.format(e))
 
 
 def logging_pred_in_disk(s):
@@ -361,6 +320,11 @@ def api_load_model_config():
     #                    'block_size': int(TRANSITION_FEATURE_RANGE / TRANSITION_SPLIT_NUM)})
     # else:
     #    raise Exception('param error')
+
+
+@app.route('/api/load_temp_criterion')
+def api_load_model_config():
+    return jsonify({'temp1_criterion': temp1_criterion, 'temp2_criterion': temp2_criterion})
 
 
 if __name__ == '__main__':
