@@ -76,7 +76,7 @@ class Determiner:
         :return:
         """
         len_ = len(df)
-        if len_ <= MIN_DATA_NUM:
+        if len_ < MIN_DATA_NUM:
             return []
         current_data = df.iloc[len_ - 1]  # 最新的一条数据
         last_data = df.iloc[len_ - 2]  # 上一秒一条数据
