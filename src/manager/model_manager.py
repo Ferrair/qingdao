@@ -77,7 +77,7 @@ class Determiner:
         """
         len_ = len(df)
         if len_ < MIN_DATA_NUM:
-            return []
+            raise Exception('len(originals) MUST >= {}'.format(MIN_DATA_NUM))
         current_data = df.iloc[len_ - 1]  # 最新的一条数据
         last_data = df.iloc[len_ - 2]  # 上一秒一条数据
         current_batch = read_config('current_batch')
