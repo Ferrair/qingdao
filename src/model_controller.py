@@ -183,7 +183,7 @@ def predict_api():
         return _predict()
     except Exception as e:
         logging.error(e)
-        return wrap_failure(999, 'Unknown error {}'.format(e))
+        return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
 
 
 def logging_pred_in_disk(s):
@@ -252,7 +252,7 @@ def manual_set_api():
 
 @app.route('/api/healthz')
 def healthz_api():
-    return jsonify(wrap_success('OK'))
+    return wrap_success('OK')
 
 
 @app.route('/api/get_environment')
