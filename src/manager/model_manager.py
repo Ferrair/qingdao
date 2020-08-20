@@ -112,7 +112,7 @@ class Determiner:
                 self.tail_flag = False
 
             # 当前点的流量减少到了 2000 --> TailModel
-            if last_data[FLOW] > FLOW_LIMIT > current_data[FLOW]:
+            if FLOW_LIMIT > current_data[FLOW] and self.produce_flag == True:
                 self.head_flag = False
                 self.produce_flag = False
                 self.tail_flag = True
