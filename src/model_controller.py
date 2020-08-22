@@ -170,7 +170,8 @@ def _predict():
         'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间 # float
         'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间 # float
         'plc_consume': 0,  # call plc 消耗的时间 # float
-        'version': 'v2020.08.12'
+        'version': 'v2020.08.12',
+        'debug_info': gen_debug_info(current_data)
     }
     logging.info('Pred success: {}, {}'.format(pred[0], pred[1]))
     logging_pred_in_disk(result)
@@ -197,6 +198,23 @@ def logging_pred_in_disk(s):
     with open(path + 'pred_log.txt', 'a', buffering=1024 * 10) as f:
         f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
 
+def gen_debug_info(current_data):
+    debug_info = {}
+    if determiner.head_flag == True:
+        debug_info['stage'] = 'head'
+        debug_info['stage_timer'] = determiner.head_model.timer
+    elif determiner.produce_flag == True:
+        debug_info['stage'] = 'produce'
+    else:
+        debug_info['stage'] = 'tail'
+        debug_info['stage_timer'] = determiner.tail_model.timer
+    debug_info['flow'] = current_data[FLOW]
+    debug_info['temp1'] = current_data[TEMP1]
+    debug_info['temp2'] = current_data[TEMP2]
+    debug_info['work_state1'] = current_data[WORK_STATUS1]
+    debug_info['work_state2'] = current_data[WORK_STATUS2]
+
+    return debug_info
 
 def logging_in_disk(s):
     """

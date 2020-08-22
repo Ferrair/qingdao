@@ -119,15 +119,15 @@ class Determiner:
 
             # 兜底策略
             if not self.head_flag and not self.produce_flag and not self.tail_flag:
-                if current_data[WORK_STATUS] == 32:
+                if current_data[WORK_STATUS1] == 32:
                     self.head_flag = False
                     self.produce_flag = True
                     self.tail_flag = False
-                elif current_data[WORK_STATUS] == 16 or current_data[WORK_STATUS] == 8:
+                elif current_data[WORK_STATUS1] == 16 or current_data[WORK_STATUS1] == 8:
                     self.head_flag = True
                     self.produce_flag = False
                     self.tail_flag = False
-                elif current_data[WORK_STATUS] == 16 or current_data[WORK_STATUS] == 64:
+                elif current_data[WORK_STATUS1] == 16 or current_data[WORK_STATUS1] == 64:
                     self.head_flag = False
                     self.produce_flag = False
                     self.tail_flag = True
