@@ -21,6 +21,7 @@ environment = None
 failure = False
 brand_strict = True
 DEFAULT_BRAND = 'Txy###'
+previous_time = 0
 
 # TODO: not hard code here
 criterion = {'Txy###': 12.699999999999994,
@@ -115,6 +116,12 @@ def _predict():
     features = data.get('features', [])
     originals = data.get('originals', [])
     originals = format_originals(originals)
+
+    global previous_time
+    if sample_time < previous_time:
+        logging.error('sample_time: {} < previous_time: {}'.format(sample_time, previous_time))
+        return wrap_failure(PARAMETERS_ERROR, 'sample_time: {} < previous_time: {}'.format(sample_time, previous_time))
+    previous_time = sample_time
 
     if len(originals) == 0:
         logging.error('len(originals) == 0')
