@@ -24,14 +24,7 @@ DEFAULT_BRAND = 'Txy###'
 previous_time = 0
 
 # TODO: not hard code here
-criterion = {'Txy###': 12.699999999999994,
-             'TG####A': 12.493271237066992,
-             'HSX###': 13.80000000000001,
-             'TH####A': 12.49285817787605,
-             'DQMr##': 13.799999999999997,
-             'ThQD##A': 12.5,
-             'HsxY##': 13.5,
-             'HR####': 12.8}
+
 temp1_criterion = {'Txy###': 135,
                    'TG####A': 140,
                    'HSX###': 135,
@@ -207,14 +200,20 @@ def logging_pred_in_disk(s):
 
 def gen_debug_info(current_data):
     debug_info = {}
+
     if determiner.head_flag == True:
         debug_info['stage'] = 'head'
         debug_info['stage_timer'] = determiner.head_model.timer
+    elif determiner.transition_flag == True:
+        debug_info['stage'] = 'transition'
     elif determiner.produce_flag == True:
         debug_info['stage'] = 'produce'
-    else:
+    elif determiner.tail_flag == True:
         debug_info['stage'] = 'tail'
         debug_info['stage_timer'] = determiner.tail_model.timer
+    else:
+        debug_info['stage'] = 'unknown'
+
     debug_info['flow'] = current_data[FLOW]
     debug_info['temp1'] = current_data[TEMP1]
     debug_info['temp2'] = current_data[TEMP2]
