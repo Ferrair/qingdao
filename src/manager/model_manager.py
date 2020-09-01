@@ -31,6 +31,23 @@ def load_current_model(param: str) -> str:
     else:
         raise Exception('param MUST in [produce, transition, head, one-hot-brands], now is ' + param)
 
+def humid_stable(original_humid: list, setting: float) -> bool:
+    """
+    连续 10 条数据出口水分与设定值误差不大于 0.1, 则认为出口水分已稳定
+    :param original_humid: 输入的出口水分数据
+    :param setting: 出口水分设定值
+    :return:
+    """
+    if len(original_humid) < 10:
+        return False
+
+    original_humid = original_humid[-10:]
+    original_humid_diff = np.array([abs(i - setting) for i in original_humid])
+    if np.any(original_humid_diff > 0.1):
+        return False
+
+    return True
+
 
 class Determiner:
 
@@ -51,6 +68,9 @@ class Determiner:
 
         # 计算头料的
         self.head_flag = False
+
+        # 过渡状态
+        self.transition_flag = False
 
         # 计算生产状态的
         self.produce_flag = False
@@ -81,6 +101,8 @@ class Determiner:
         current_data = df.iloc[len_ - 1]  # 最新的一条数据
         last_data = df.iloc[len_ - 2]  # 上一秒一条数据
         current_batch = read_config('current_batch')
+        current_brand = current_data[BRADN]
+
         # current_batch = None
 
         try:
@@ -101,34 +123,46 @@ class Determiner:
             # 当前点的流量增长到了 2000 --> HeadModel
             if last_data[FLOW] < FLOW_LIMIT < current_data[FLOW]:
                 self.head_flag = True
+                self.transition_flag = False
                 self.produce_flag = False
                 self.tail_flag = False
 
-            # 当前点有了出口水分，并且头料也进行一段时间了 --> ProductModel
-            # 或者直接已经就是生产状态
-            if current_data[HUMID_AFTER_CUT] > HUMID_EPSILON and self.head_model.timer > HEAD_MAX_TIME:
+            # 当前点有了出口水分，并且未进入生产阶段 --> TransitionModel
+            if current_data[HUMID_AFTER_DRYING] > HUMID_EPSILON and self.produce_flag == False:
                 self.head_flag = False
+                self.transition_flag = True
+                self.produce_flag = False
+                self.tail_flag = False
+
+            # 当前就是生产阶段，或者出口水分已稳定 --> ProductModel
+            if self.produce_flag == True or humid_stable([x[HUMID_AFTER_DRYING] for x in df], criterion[current_brand]):
+                self.head_flag = False
+                self.transition_flag = False
                 self.produce_flag = True
                 self.tail_flag = False
 
-            # 当前点的流量减少到了 2000 --> TailModel
-            if last_data[FLOW] > FLOW_LIMIT > current_data[FLOW]:
+            # 流量小于2000，并且之前状态是生产状态 --> TailModel
+            if FLOW_LIMIT > current_data[FLOW] and self.produce_flag == True:
                 self.head_flag = False
+                self.transition_flag = False
                 self.produce_flag = False
                 self.tail_flag = True
 
             # 兜底策略
             if not self.head_flag and not self.produce_flag and not self.tail_flag:
-                if current_data[WORK_STATUS] == 32:
+                if current_data[WORK_STATUS1] == 32:
                     self.head_flag = False
+                    self.transition_flag = False
                     self.produce_flag = True
                     self.tail_flag = False
-                elif current_data[WORK_STATUS] == 16 or current_data[WORK_STATUS] == 8:
+                elif current_data[WORK_STATUS1] == 16 or current_data[WORK_STATUS1] == 8:
                     self.head_flag = True
+                    self.transition_flag = False
                     self.produce_flag = False
                     self.tail_flag = False
-                elif current_data[WORK_STATUS] == 16 or current_data[WORK_STATUS] == 64:
+                elif current_data[WORK_STATUS1] == 16 or current_data[WORK_STATUS1] == 64:
                     self.head_flag = False
+                    self.transition_flag = False
                     self.produce_flag = False
                     self.tail_flag = True
                 else:
@@ -141,6 +175,11 @@ class Determiner:
                                                last_temp_1=current_data[TEMP1], last_temp_2=current_data[TEMP2])
                 logging.info('Head timer: {}'.format(self.head_model.timer))
                 return list(pred)
+
+            if self.transition_flag:
+                logging.info('Current in Transition Model.')
+
+                return []
 
             if self.produce_flag:
                 # TODO: transition model 没有使用

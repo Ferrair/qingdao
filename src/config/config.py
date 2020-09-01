@@ -12,7 +12,8 @@ TEMP2 = '5H.5H.LD5_KL2226_BucketTemp2SP'  # '二区温度设定值'
 HUMID_AFTER_DRYING = '5H.5H.LD5_KL2226_TT1LastMoisPV'  # '烘丝后出口水分'
 CUT_HALF_FULL = '6032.6032.LD5_2220_GP2220STATUS3'  # '5000叶丝线暂存柜半满'
 
-WORK_STATUS = '5H.5H.LD5_KL2226_PHASE1'
+WORK_STATUS1 = '5H.5H.LD5_KL2226_PHASE1'
+WORK_STATUS2 = '5H.5H.LD5_KL2226_PHASE2'
 
 # TODO：这个2个地方需要修改
 # WARM_TEMP1 = '一区预热'
@@ -24,6 +25,15 @@ MIN_DATA_NUM = 2  # 最少的数据限制
 HUMID_EPSILON = 0.1  # 低于这个出口水分，几乎就为0，为了防止误差的
 HEAD_MAX_TIME = 300  # 头料阶段最大时间，大于这个时间就当做生产状态了
 
+# 烘干后出口水分设定值
+criterion = {'Txy###': 12.699999999999994,
+             'TG####A': 12.493271237066992,
+             'HSX###': 13.80000000000001,
+             'TH####A': 12.49285817787605,
+             'DQMr##': 13.799999999999997,
+             'ThQD##A': 12.5,
+             'HsxY##': 13.5,
+             'HR####': 12.8}
 
 class Environment:
     TEST = 'test'  # 输出到物理测试点位
