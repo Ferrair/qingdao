@@ -1,5 +1,7 @@
 import logging
 import os
+from queue import Queue
+
 import pandas as pd
 import numpy as np
 from src.config.config import *
@@ -30,6 +32,7 @@ def load_current_model(param: str) -> str:
         return current_dir + "/" + current_dir + '#' + param
     else:
         raise Exception('param MUST in [produce, transition, head, one-hot-brands], now is ' + param)
+
 
 def humid_stable(original_humid: list, setting: float) -> bool:
     """
@@ -78,6 +81,8 @@ class Determiner:
         # 计算尾料的
         self.tail_flag = False
 
+        self.q = Queue()
+
     def init_model(self, next_range_1: int, next_range_2: int):
         self.head_model = HeadModel()
         self.tail_model = TailModel(next_range_1, next_range_2)
@@ -112,6 +117,10 @@ class Determiner:
             if self.cut_half_full_flag and len(self.humid_after_cut) < HUMID_AFTER_CUT_RANGE:
                 self.humid_after_cut.append(current_data[HUMID_AFTER_CUT])
 
+            self.q.put(current_data[HUMID_BEFORE_DRYING])
+            if self.q.qsize() > MAX_BEFORE_HUMID_SIZE:
+                self.q.get()
+
             # 一个批次的开始
             if not current_batch or current_batch != current_data[BATCH]:
                 current_batch = current_data[BATCH]
@@ -135,7 +144,7 @@ class Determiner:
                 self.tail_flag = False
 
             # 当前就是生产阶段，或者出口水分已稳定 --> ProductModel
-            if self.produce_flag == True or humid_stable([x[HUMID_AFTER_DRYING] for x in df], criterion[current_brand]):
+            if self.produce_flag is True or humid_stable([x[HUMID_AFTER_DRYING] for x in df], criterion[current_brand]):
                 self.head_flag = False
                 self.transition_flag = False
                 self.produce_flag = True
@@ -178,8 +187,13 @@ class Determiner:
 
             if self.transition_flag:
                 logging.info('Current in Transition Model.')
-
-                return []
+                brand = current_data[BRADN]
+                input_humid = list(self.q.queue)
+                input_humid = sum(input_humid) / len(input_humid)
+                # 暂时使用Head模型，增加了下惩罚项
+                last_temp_1 = float(self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 1.1)
+                last_temp_2 = float(self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 1.1)
+                return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
                 # TODO: transition model 没有使用

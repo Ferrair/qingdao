@@ -98,8 +98,9 @@ def format_originals(originals):
 
 def add_random(pred):
     # FOR TEST USE ONLY
+    # SHOULD REMOVE IN PROD MODE
     import random
-    return [pred[0] + random.random() / 2, pred[1] + random.random() / 2]
+    return [pred[0] + random.random() / 5, pred[1] + random.random() / 5]
 
 
 def _predict():
@@ -198,17 +199,18 @@ def logging_pred_in_disk(s):
     with open(path + 'pred_log.txt', 'a', buffering=1024 * 10) as f:
         f.write(str(get_current_time()) + ' ---- ' + str(s) + '\n')
 
+
 def gen_debug_info(current_data):
     debug_info = {}
 
-    if determiner.head_flag == True:
+    if determiner.head_flag:
         debug_info['stage'] = 'head'
         debug_info['stage_timer'] = determiner.head_model.timer
-    elif determiner.transition_flag == True:
+    elif determiner.transition_flag:
         debug_info['stage'] = 'transition'
-    elif determiner.produce_flag == True:
+    elif determiner.produce_flag:
         debug_info['stage'] = 'produce'
-    elif determiner.tail_flag == True:
+    elif determiner.tail_flag:
         debug_info['stage'] = 'tail'
         debug_info['stage_timer'] = determiner.tail_model.timer
     else:
@@ -221,6 +223,7 @@ def gen_debug_info(current_data):
     debug_info['work_state2'] = current_data[WORK_STATUS2]
 
     return debug_info
+
 
 def logging_in_disk(s):
     """
