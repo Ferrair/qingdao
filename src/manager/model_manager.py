@@ -192,13 +192,12 @@ class Determiner:
                 input_humid = sum(input_humid) / len(input_humid)
                 # 暂时使用Head模型，增加了下惩罚项
                 last_temp_1 = float(
-                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 1.1)
+                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 0.9)
                 last_temp_2 = float(
-                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 1.1)
+                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 0.9)
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
-                # TODO: transition model 没有使用
                 logging.info('Current in Produce Model.')
                 pred = self.produce_model.predict(features)
                 return list(pred.ravel())
