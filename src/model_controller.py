@@ -103,14 +103,22 @@ def add_random(pred):
     return [pred[0] + random.random() / 5, pred[1] + random.random() / 5]
 
 
-def _predict():
-    data = request.get_json()
-    pred_start_time = int(time.time() * 1000)
-    sample_time = data.get('time', 0)
-    features = data.get('features', [])
-    originals = data.get('originals', [])
-    originals = format_originals(originals)
+def check_features_correct(features, originals):
+    try:
+        if len(originals) == FEATURE_RANGE:
+            columns = list(originals[0].keys())
+            data = [list(item.values()) for item in originals]
+            computed_features = calc_feature_lr(pd.DataFrame(data, columns=columns), SPLIT_NUM)
+            if not np.array_equal(features, computed_features):
+                logging.error('Flink Features process might not correct.')
+                return False, computed_features
+    except Exception as e:
+        logging.error(e)
+        return False, features
+    return True, features
 
+
+def _predict(originals, features, pred_start_time=0, sample_time=0):
     global previous_time
     if sample_time < previous_time:
         logging.error('sample_time: {} < previous_time: {}'.format(sample_time, previous_time))
@@ -120,6 +128,10 @@ def _predict():
     if len(originals) == 0:
         logging.error('len(originals) == 0')
         return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
+
+    # Check Feature
+    # 判断Flink计算的特征是否正确
+    is_correct, features = check_features_correct(features, originals)
 
     current_data = originals[len(originals) - 1]
     brand = current_data[BRADN]
@@ -165,6 +177,7 @@ def _predict():
     result = {
         'brand': brand,  # str
         'batch': batch,  # str
+        'is_correct': is_correct,
         'tempRegion1': pred[0],  # float
         'tempRegion2': pred[1],  # float
         'time': sample_time,  # 采样数据的采样时间 # float
@@ -182,7 +195,14 @@ def _predict():
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
     try:
-        return _predict()
+
+        data = request.get_json()
+        pred_start_time = int(time.time() * 1000)
+        sample_time = data.get('time', 0)
+        features = data.get('features', [])
+        originals = data.get('originals', [])
+        originals = format_originals(originals)
+        return _predict(originals, features, pred_start_time, sample_time)
     except Exception as e:
         logging.error(e)
         return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
