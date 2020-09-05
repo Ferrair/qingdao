@@ -137,21 +137,21 @@ class Determiner:
                 self.tail_flag = False
 
             # 当前点有了出口水分，并且未进入生产阶段 --> TransitionModel
-            if current_data[HUMID_AFTER_DRYING] > HUMID_EPSILON and self.produce_flag == False:
+            if current_data[HUMID_AFTER_DRYING] > HUMID_EPSILON and not self.produce_flag:
                 self.head_flag = False
                 self.transition_flag = True
                 self.produce_flag = False
                 self.tail_flag = False
 
             # 当前就是生产阶段，或者出口水分已稳定 --> ProductModel
-            if self.produce_flag is True or humid_stable([x[HUMID_AFTER_DRYING] for x in df], criterion[current_brand]):
+            if self.produce_flag is True or humid_stable(list(df[HUMID_AFTER_DRYING].values), criterion[current_brand]):
                 self.head_flag = False
                 self.transition_flag = False
                 self.produce_flag = True
                 self.tail_flag = False
 
             # 流量小于2000，并且之前状态是生产状态 --> TailModel
-            if FLOW_LIMIT > current_data[FLOW] and self.produce_flag == True:
+            if FLOW_LIMIT > current_data[FLOW] and self.produce_flag:
                 self.head_flag = False
                 self.transition_flag = False
                 self.produce_flag = False
@@ -191,8 +191,10 @@ class Determiner:
                 input_humid = list(self.q.queue)
                 input_humid = sum(input_humid) / len(input_humid)
                 # 暂时使用Head模型，增加了下惩罚项
-                last_temp_1 = float(self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 1.1)
-                last_temp_2 = float(self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 1.1)
+                last_temp_1 = float(
+                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 1.1)
+                last_temp_2 = float(
+                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 1.1)
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
