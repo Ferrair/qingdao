@@ -158,7 +158,7 @@ class Determiner:
                 self.tail_flag = True
 
             # 兜底策略
-            if not self.head_flag and not self.produce_flag and not self.tail_flag:
+            if not self.head_flag and not self.produce_flag and not self.tail_flag and not self.transition_flag:
                 if current_data[WORK_STATUS1] == 32:
                     self.head_flag = False
                     self.transition_flag = False
