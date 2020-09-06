@@ -111,7 +111,14 @@ class Determiner:
         # current_batch = None
 
         try:
-            # 计算切后水分，只选取 5000叶丝线暂存柜半满 后的三分钟的数据
+            # 流量小于100，直接不预测
+            if current_data[FLOW] < FLOW_MIN:
+                logging.info('FLow less than 100.')
+                return [current_data[TEMP1], current_data[TEMP2]]
+
+            # 计算切后水分，只选取 5000 叶丝线暂存柜半满后的三分钟的数据
+            # 改为：切后水分仪计算到时间范围：以入口水分大于17后的60S开始计时，持续到半满后的2分钟
+            # 5H.5H.LD5_KL2226_InputMoisture
             if current_data[CUT_HALF_FULL]:
                 self.cut_half_full_flag = True
             if self.cut_half_full_flag and len(self.humid_after_cut) < HUMID_AFTER_CUT_RANGE:
@@ -210,7 +217,7 @@ class Determiner:
                 # TODO: 逻辑还需要在处理下
                 # if finish:
                 #    save_config('current_batch', None)
-                logging.info('Tail timer: {}'.format(self.tail_model.timer))
+                logging.info('Tail timer: {}, is_finish'.format(self.tail_model.timer), finish)
                 return list(pred)
         except Exception as e:
             logging.error(e)
