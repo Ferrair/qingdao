@@ -10,9 +10,8 @@ HUMID_AFTER_CUT = '6032.6032.LD5_TM2222A_CUTOUTMOISTURE'  # '切丝后出口水�
 TEMP1 = '5H.5H.LD5_KL2226_BucketTemp1SP'  # '一区温度设定值'
 TEMP2 = '5H.5H.LD5_KL2226_BucketTemp2SP'  # '二区温度设定值'
 HUMID_AFTER_DRYING = '5H.5H.LD5_KL2226_TT1LastMoisPV'  # '烘丝后出口水分'
-HUMID_BEFORE_DRYING = '5H.5H.LD5_KL2226_InputMoisture'  # '烘丝后出口水分'
+HUMID_BEFORE_DRYING = '5H.5H.LD5_KL2226_InputMoisture'  # '烘丝后入口水分'
 CUT_HALF_FULL = '6032.6032.LD5_2220_GP2220STATUS3'  # '5000叶丝线暂存柜半满'
-
 
 WORK_STATUS1 = '5H.5H.LD5_KL2226_PHASE1'
 WORK_STATUS2 = '5H.5H.LD5_KL2226_PHASE2'
@@ -21,7 +20,7 @@ WORK_STATUS2 = '5H.5H.LD5_KL2226_PHASE2'
 # WARM_TEMP1 = '一区预热'
 # WARM_TEMP2 = '二区预热'
 
-MAX_BEFORE_HUMID_SIZE = 20 # 利用多长时间的入口水分
+MAX_BEFORE_HUMID_SIZE = 20  # 利用多长时间的入口水分
 HUMID_AFTER_CUT_RANGE = 180  # 选取这么多时间的切丝后出口水分平均值
 FLOW_LIMIT = 2000  # 流量判断
 FLOW_MIN = 100  # 流量判断
@@ -38,6 +37,7 @@ criterion = {'Txy###': 12.699999999999994,
              'ThQD##A': 12.5,
              'HsxY##': 13.5,
              'HR####': 12.8}
+
 
 class Environment:
     TEST = 'test'  # 输出到物理测试点位

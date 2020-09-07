@@ -67,7 +67,7 @@ class Determiner:
 
         # 计算5000叶丝线暂存柜半满的
         self.humid_after_cut = []
-        self.cut_half_full_flag = False
+        self.cut_half_full_counter = 0
 
         # 计算头料的
         self.head_flag = False
@@ -109,7 +109,6 @@ class Determiner:
         current_brand = current_data[BRADN]
 
         # current_batch = None
-
         try:
             # 流量小于100，直接不预测
             if current_data[FLOW] < FLOW_MIN:
@@ -119,10 +118,10 @@ class Determiner:
             # 计算切后水分，只选取 5000 叶丝线暂存柜半满后的三分钟的数据
             # 改为：切后水分仪计算到时间范围：以入口水分大于17后的60S开始计时，持续到半满后的2分钟
             # 5H.5H.LD5_KL2226_InputMoisture
-            if current_data[CUT_HALF_FULL]:
-                self.cut_half_full_flag = True
-            if self.cut_half_full_flag and len(self.humid_after_cut) < HUMID_AFTER_CUT_RANGE:
+            if current_data[HUMID_BEFORE_DRYING] > 17 and self.cut_half_full_counter < 120:
                 self.humid_after_cut.append(current_data[HUMID_AFTER_CUT])
+            if current_data[CUT_HALF_FULL]:
+                self.cut_half_full_counter += 1
 
             self.q.put(current_data[HUMID_BEFORE_DRYING])
             if self.q.qsize() > MAX_BEFORE_HUMID_SIZE:
@@ -130,6 +129,8 @@ class Determiner:
 
             # 一个批次的开始
             if not current_batch or current_batch != current_data[BATCH]:
+                self.humid_after_cut = []  # 清空
+                self.cut_half_full_counter = 0
                 current_batch = current_data[BATCH]
                 save_config('current_batch', current_batch)
                 # TODO 需要更换
