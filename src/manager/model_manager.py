@@ -93,6 +93,18 @@ class Determiner:
         self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
         self.transition_model.load(MODEL_SAVE_DIR + load_current_model('transition'))
 
+        # 计算头料的
+        self.head_flag = False
+
+        # 过渡状态
+        self.transition_flag = False
+
+        # 计算生产状态的
+        self.produce_flag = False
+
+        # 计算尾料的
+        self.tail_flag = False
+
     def dispatch(self, df: pd.DataFrame, features: np.array) -> list:
         """
         :param df: 一个Windows长度的数据，数组最后一个点的数据为当前时刻的数据
