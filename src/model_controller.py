@@ -21,7 +21,7 @@ environment = None
 failure = False
 brand_strict = True
 DEFAULT_BRAND = 'Txy###'
-previous_time = 0
+previous_time_dict = {}
 
 # TODO: not hard code here
 
@@ -118,24 +118,21 @@ def check_features_correct(features, originals):
     return True, features
 
 
-def _predict(originals, features, pred_start_time=0, sample_time=0):
-    global previous_time
-    if sample_time < previous_time:
-        logging.error('sample_time: {} < previous_time: {}'.format(sample_time, previous_time))
-        return wrap_failure(PARAMETERS_ERROR, 'sample_time: {} < previous_time: {}'.format(sample_time, previous_time))
-    previous_time = sample_time
+def _predict(originals, features, brand, time_dict):
+    pred_start_time = time_dict.get('pred_start_time', 0)
+    sample_time = time_dict.get('sample_time', 0)
+    kafka_time = time_dict.get('kafka_time', 0)
+
+    global previous_time_dict
+    if sample_time < previous_time_dict.get(brand, 0):
+        logging.error('sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
+        return wrap_failure(PARAMETERS_ERROR,
+                            'sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
+    previous_time_dict[brand] = sample_time
 
     if len(originals) == 0:
         logging.error('len(originals) == 0')
         return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
-
-    # Check Feature
-    # 判断Flink计算的特征是否正确
-    is_correct, features = check_features_correct(features, originals)
-
-    current_data = originals[len(originals) - 1]
-    brand = current_data[BRADN]
-    batch = current_data[BATCH]
 
     if brand not in one_hot.keys():
         if brand_strict:
@@ -143,6 +140,15 @@ def _predict(originals, features, pred_start_time=0, sample_time=0):
             return wrap_failure(NEW_BRAND_ERROR, 'our model cannot handle new brand: ' + brand)
         else:
             brand = DEFAULT_BRAND
+
+    # Check Feature
+    # 判断Flink计算的特征是否正确
+    is_correct, features = check_features_correct(features, originals)
+
+    current_data = originals[len(originals) - 1]
+    # brand = current_data[BRADN]
+    batch = current_data[BATCH]
+
     # len = 1650
     if len(features) != 0 and len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
         return wrap_failure(PARAMETERS_ERROR, 'len(features) should equals {}, current: {}'.format(
@@ -181,6 +187,7 @@ def _predict(originals, features, pred_start_time=0, sample_time=0):
         'tempRegion1': pred[0],  # float
         'tempRegion2': pred[1],  # float
         'time': sample_time,  # 采样数据的采样时间 # float
+        'kafka_time': kafka_time,  # 刚进入flink的瞬间的时间 # float
         'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间 # float
         'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间 # float
         'plc_consume': 0,  # call plc 消耗的时间 # float
@@ -199,10 +206,16 @@ def predict_api():
         data = request.get_json()
         pred_start_time = int(time.time() * 1000)
         sample_time = data.get('time', 0)
+        kafka_time = data.get('kafka_time', 0)
         features = data.get('features', [])
+        brand = data.get('brand', None)
         originals = data.get('originals', [])
         originals = format_originals(originals)
-        return _predict(originals, features, pred_start_time, sample_time)
+        return _predict(originals, features, brand, {
+            'pred_start_time': pred_start_time,
+            'sample_time': sample_time,
+            'kafka_time': kafka_time,
+        })
     except Exception as e:
         logging.error(e)
         return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
