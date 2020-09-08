@@ -118,10 +118,22 @@ def check_features_correct(features, originals):
     return True, features
 
 
-def _predict(originals, features, brand, time_dict):
+def _predict(originals, features, time_dict):
     pred_start_time = time_dict.get('pred_start_time', 0)
     sample_time = time_dict.get('sample_time', 0)
     kafka_time = time_dict.get('kafka_time', 0)
+
+    # Check Feature
+    # 判断Flink计算的特征是否正确
+    is_correct, features = check_features_correct(features, originals)
+
+    if len(originals) == 0:
+        logging.error('len(originals) == 0')
+        return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
+
+    current_data = originals[len(originals) - 1]
+    brand = current_data[BRADN]
+    batch = current_data[BATCH]
 
     global previous_time_dict
     if sample_time < previous_time_dict.get(brand, 0):
@@ -130,24 +142,12 @@ def _predict(originals, features, brand, time_dict):
                             'sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
     previous_time_dict[brand] = sample_time
 
-    if len(originals) == 0:
-        logging.error('len(originals) == 0')
-        return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
-
     if brand not in one_hot.keys():
         if brand_strict:
             logging.info('our model cannot handle new brand: ' + brand)
             return wrap_failure(NEW_BRAND_ERROR, 'our model cannot handle new brand: ' + brand)
         else:
             brand = DEFAULT_BRAND
-
-    # Check Feature
-    # 判断Flink计算的特征是否正确
-    is_correct, features = check_features_correct(features, originals)
-
-    current_data = originals[len(originals) - 1]
-    # brand = current_data[BRADN]
-    batch = current_data[BATCH]
 
     # len = 1650
     if len(features) != 0 and len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
@@ -208,10 +208,9 @@ def predict_api():
         sample_time = data.get('time', 0)
         kafka_time = data.get('kafka_time', 0)
         features = data.get('features', [])
-        brand = data.get('brand', None)
         originals = data.get('originals', [])
         originals = format_originals(originals)
-        return _predict(originals, features, brand, {
+        return _predict(originals, features, {
             'pred_start_time': pred_start_time,
             'sample_time': sample_time,
             'kafka_time': kafka_time,
@@ -249,6 +248,7 @@ def gen_debug_info(current_data):
     else:
         debug_info['stage'] = 'unknown'
 
+    debug_info['current_time'] = int(time.time() * 1000)  # 当前时间
     debug_info['flow'] = current_data[FLOW]
     debug_info['temp1'] = current_data[TEMP1]
     debug_info['temp2'] = current_data[TEMP2]

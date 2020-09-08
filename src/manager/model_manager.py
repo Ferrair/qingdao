@@ -147,7 +147,6 @@ class Determiner:
 
             # 一个批次的开始
             if not current_batch or current_batch != current_data[BATCH]:
-
                 current_batch = current_data[BATCH]
                 save_config('current_batch', current_batch)
                 # TODO 需要更换
