@@ -105,6 +105,11 @@ class Determiner:
         # 计算尾料的
         self.tail_flag = False
 
+        self.humid_after_cut = []  # 清空
+        self.cut_half_full_counter = 0
+
+        self.q = Queue()
+
     def dispatch(self, df: pd.DataFrame, features: np.array) -> list:
         """
         :param df: 一个Windows长度的数据，数组最后一个点的数据为当前时刻的数据
@@ -142,8 +147,7 @@ class Determiner:
 
             # 一个批次的开始
             if not current_batch or current_batch != current_data[BATCH]:
-                self.humid_after_cut = []  # 清空
-                self.cut_half_full_counter = 0
+
                 current_batch = current_data[BATCH]
                 save_config('current_batch', current_batch)
                 # TODO 需要更换
