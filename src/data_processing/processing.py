@@ -97,7 +97,7 @@ def concatenate(data_: list) -> np.array:
 def clip_last(pred: np.array, last_temp_1: float, last_temp_2: float) -> np.array:
     if len(pred) is not 2:
         raise Exception('Predicted value MUST have 2 value')
-    bound = 0.5
+    bound = 0.3
     pred[0] = np.clip(pred[0], last_temp_1 - bound, last_temp_1 + bound)
     pred[1] = np.clip(pred[1], last_temp_2 - bound, last_temp_2 + bound)
     return pred
@@ -113,7 +113,7 @@ def clip(pred: np.array, criterion_1: float, criterion_2: float) -> np.array:
     """
     if len(pred) is not 2:
         raise Exception('Predicted value MUST have 2 value')
-    bound = 3.5
+    bound = 2.0
     pred[0] = np.clip(pred[0], criterion_1 - bound, criterion_1 + bound)
     pred[1] = np.clip(pred[1], criterion_2 - bound, criterion_2 + bound)
     return pred

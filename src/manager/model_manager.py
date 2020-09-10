@@ -127,21 +127,16 @@ class Determiner:
 
         # current_batch = None
         try:
-            # 流量小于100，直接不预测
-            if current_data[FLOW] < FLOW_MIN:
-                logging.info('FLow less than 100.')
-                return [current_data[TEMP1], current_data[TEMP2]]
-
             # 计算切后水分，只选取 5000 叶丝线暂存柜半满后的三分钟的数据
             # 改为：切后水分仪计算到时间范围：以入口水分大于17后的60S开始计时，持续到半满后的2分钟
             # 5H.5H.LD5_KL2226_InputMoisture
-            # TODO: 该为可以配置的方式
-            if current_data[HUMID_BEFORE_DRYING] > 17 and self.cut_half_full_counter < 120:
-                self.humid_after_cut.append(current_data[HUMID_AFTER_CUT])
+            # TODO 优化为queue的形式
+            if float(current_data[HUMID_AFTER_CUT]) > 17.5 and self.cut_half_full_counter < 180:
+                self.humid_after_cut.append(float(current_data[HUMID_AFTER_CUT]))
             if current_data[CUT_HALF_FULL]:
                 self.cut_half_full_counter += 1
 
-            self.q.put(current_data[HUMID_BEFORE_DRYING])
+            self.q.put(float(current_data[HUMID_BEFORE_DRYING]))
             if self.q.qsize() > MAX_BEFORE_HUMID_SIZE:
                 self.q.get()
 
@@ -154,14 +149,14 @@ class Determiner:
                 self.init_model(130, 115)
 
             # 当前点的流量增长到了 2000 --> HeadModel
-            if last_data[FLOW] < FLOW_LIMIT < current_data[FLOW]:
+            if float(last_data[FLOW]) < FLOW_LIMIT < float(current_data[FLOW]):
                 self.head_flag = True
                 self.transition_flag = False
                 self.produce_flag = False
                 self.tail_flag = False
 
             # 当前点有了出口水分，并且未进入生产阶段 --> TransitionModel
-            if current_data[HUMID_AFTER_DRYING] > HUMID_EPSILON and not self.produce_flag:
+            if float(current_data[HUMID_AFTER_DRYING]) > HUMID_EPSILON and self.head_flag:
                 self.head_flag = False
                 self.transition_flag = True
                 self.produce_flag = False
@@ -175,7 +170,7 @@ class Determiner:
                 self.tail_flag = False
 
             # 流量小于2000，并且之前状态是生产状态 --> TailModel
-            if FLOW_LIMIT > current_data[FLOW] and self.produce_flag:
+            if FLOW_LIMIT > float(current_data[FLOW]) and self.produce_flag:
                 self.head_flag = False
                 self.transition_flag = False
                 self.produce_flag = False
@@ -183,29 +178,37 @@ class Determiner:
 
             # 兜底策略
             if not self.head_flag and not self.produce_flag and not self.tail_flag and not self.transition_flag:
-                if current_data[WORK_STATUS1] == 32:
+                if int(current_data[WORK_STATUS1]) == 32:
                     self.head_flag = False
                     self.transition_flag = False
                     self.produce_flag = True
                     self.tail_flag = False
-                elif current_data[WORK_STATUS1] == 16 or current_data[WORK_STATUS1] == 8:
+                elif int(current_data[WORK_STATUS1]) == 16 or int(current_data[WORK_STATUS1]) == 8:
                     self.head_flag = True
                     self.transition_flag = False
                     self.produce_flag = False
                     self.tail_flag = False
-                elif current_data[WORK_STATUS1] == 16 or current_data[WORK_STATUS1] == 64:
+                elif int(current_data[WORK_STATUS1]) == 16 or int(current_data[WORK_STATUS1]) == 64:
                     self.head_flag = False
                     self.transition_flag = False
                     self.produce_flag = False
                     self.tail_flag = True
                 else:
-                    raise Exception('Find invalid work status.')
+                    raise Exception('Invalid work status. So we will use last 2 temp as current temp. FLOW: {}'.format(
+                        current_data[FLOW]))
 
             if self.head_flag:
                 logging.info('Current in Head Model.')
-                pred = self.head_model.predict(brand=current_data[BRADN], flow=current_data[FLOW],
-                                               humid_after_cut=sum(self.humid_after_cut) / len(self.humid_after_cut),
-                                               last_temp_1=current_data[TEMP1], last_temp_2=current_data[TEMP2])
+                try:
+                    humid_after_cut = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                except ZeroDivisionError as e:
+                    logging.error(
+                        'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
+                    humid_after_cut = 17
+                pred = self.head_model.predict(brand=current_data[BRADN], flow=float(current_data[FLOW]),
+                                               humid_after_cut=humid_after_cut,
+                                               last_temp_1=float(current_data[TEMP1]),
+                                               last_temp_2=float(current_data[TEMP2]))
                 logging.info('Head timer: {}'.format(self.head_model.timer))
                 return list(pred)
 
@@ -213,12 +216,17 @@ class Determiner:
                 logging.info('Current in Transition Model.')
                 brand = current_data[BRADN]
                 input_humid = list(self.q.queue)
-                input_humid = sum(input_humid) / len(input_humid)
+                try:
+                    input_humid = sum(input_humid) / len(input_humid)
+                except ZeroDivisionError as e:
+                    logging.error('ZeroDivisionError: {}, {}'.format(sum(input_humid), len(input_humid)))
+                    input_humid = 17
                 # 暂时使用Head模型，增加了下惩罚项
+
                 last_temp_1 = float(
-                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 0.9)
+                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 1.1)
                 last_temp_2 = float(
-                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 0.9)
+                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 1.1)
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
@@ -228,15 +236,15 @@ class Determiner:
 
             if self.tail_flag:
                 logging.info('Current in Tail Model.')
-                finish, pred = self.tail_model.predict(flow=current_data[FLOW],
-                                                       last_temp_1=current_data[TEMP1],
-                                                       last_temp_2=current_data[TEMP2])
+                finish, pred = self.tail_model.predict(flow=float(current_data[FLOW]),
+                                                       last_temp_1=float(current_data[TEMP1]),
+                                                       last_temp_2=float(current_data[TEMP2]))
                 # TODO: 逻辑还需要在处理下
                 # if finish:
                 #    save_config('current_batch', None)
-                logging.info('Tail timer: {}, is_finish'.format(self.tail_model.timer), finish)
+                logging.info('Tail timer: {}, is_finish: {}'.format(self.tail_model.timer, finish))
                 return list(pred)
         except Exception as e:
             logging.error(e)
             save_config('current_batch', None)
-            return [current_data[TEMP1], current_data[TEMP2]]
+            return [float(current_data[TEMP1]), float(current_data[TEMP2])]

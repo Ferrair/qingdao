@@ -91,7 +91,10 @@ def format_originals(originals):
     for original in originals:
         new_original = {}
         for item in original:
-            new_original[item['id']] = item['v']
+            try:
+                new_original[item['id']] = float(item['v'])
+            except Exception as e:
+                new_original[item['id']] = item['v']
         new_originals.append(new_original)
     return new_originals
 
@@ -100,7 +103,7 @@ def add_random(pred):
     # FOR TEST USE ONLY
     # SHOULD REMOVE IN PROD MODE
     import random
-    return [pred[0] + random.random() / 5, pred[1] + random.random() / 5]
+    return [pred[0] + (random.random() - 0.5) / 10, pred[1] + (random.random() - 0.5) / 10]
 
 
 def check_features_correct(features, originals):
@@ -110,7 +113,7 @@ def check_features_correct(features, originals):
             data = [list(item.values()) for item in originals]
             computed_features = calc_feature_lr(pd.DataFrame(data, columns=columns), SPLIT_NUM)
             if not np.array_equal(features, computed_features):
-                logging.error('Flink Features process might not correct.')
+                # logging.error('Flink Features process might not correct.')
                 return False, computed_features
     except Exception as e:
         logging.error(e)
@@ -135,12 +138,13 @@ def _predict(originals, features, time_dict):
     brand = current_data[BRADN]
     batch = current_data[BATCH]
 
-    global previous_time_dict
-    if sample_time < previous_time_dict.get(brand, 0):
-        logging.error('sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
-        return wrap_failure(PARAMETERS_ERROR,
-                            'sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
-    previous_time_dict[brand] = sample_time
+    # # 检查顺序
+    # global previous_time_dict
+    # if sample_time < previous_time_dict.get(brand, 0):
+    #     logging.error('sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
+    #     return wrap_failure(PARAMETERS_ERROR,
+    #                         'sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
+    # previous_time_dict[brand] = sample_time
 
     if brand not in one_hot.keys():
         if brand_strict:
@@ -165,14 +169,19 @@ def _predict(originals, features, time_dict):
 
     try:
         pred = determiner.dispatch(df=df, features=features)
-        logging.info('Pred before adjust: {}, {}'.format(pred[0], pred[1]))
+
         # 只有在生产阶段，才做这些操作
         if determiner.produce_flag:
+            logging.info('Pred before adjust: {}, {}, REAL: {}, {}'.format(pred[0], pred[1],
+                                                                           current_data[HUMID_AFTER_DRYING],
+                                                                           criterion[brand]))
             pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
             pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
-        pred = clip_last(pred, current_data[TEMP1], current_data[TEMP2])
+            pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
         pred = add_random(pred)
-        logging.info('Pred after adjust: {}, {}'.format(pred[0], pred[1]))
+        logging.info('Pred after adjust: {}, {} ---- REAL: {}, {}'.format(pred[0], pred[1],
+                                                                          current_data[TEMP1],
+                                                                          current_data[TEMP2]))
         pred_end_time = int(time.time() * 1000)
     except Exception as e:
         logging.error(e)
@@ -183,8 +192,8 @@ def _predict(originals, features, time_dict):
     result = {
         'brand': brand,  # str
         'batch': batch,  # str
-        'is_correct': is_correct,
         'tempRegion1': pred[0],  # float
+        'is_correct': is_correct,
         'tempRegion2': pred[1],  # float
         'time': sample_time,  # 采样数据的采样时间 # float
         'kafka_time': kafka_time,  # 刚进入flink的瞬间的时间 # float

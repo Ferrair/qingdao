@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 
 from src.config.config import *
@@ -66,11 +68,11 @@ class HeadModel(BasicModel):
         #     self.timer = 0
 
         # region 1
-        if self.timer == self.range_1_lag:
+        if self.timer >= self.range_1_lag:
             last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand] * humid_after_cut)
 
         # region 2
-        if self.timer == self.range_2_lag:
+        if self.timer >= self.range_2_lag:
             last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand] * humid_after_cut)
 
         self.timer += 1
