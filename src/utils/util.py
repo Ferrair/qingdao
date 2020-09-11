@@ -52,7 +52,7 @@ def read_config(key: str) -> str:
     :return:
     """
     config = read_txt_to_dict(ROOT_PATH + '/src/config/env')
-    return config.get(key)
+    return config.get(key, None)
 
 
 def read_mapping():

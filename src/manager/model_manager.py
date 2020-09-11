@@ -1,9 +1,11 @@
+import json
 import logging
 import os
 from queue import Queue
 
 import pandas as pd
 import numpy as np
+import requests
 from src.config.config import *
 from src.model.head import HeadModel
 from src.model.lr_model import LRModel
@@ -83,6 +85,39 @@ class Determiner:
 
         self.q = Queue()
 
+    @classmethod
+    def read_standard(cls, brand, default_1, default_2):
+        try:
+            # 请求预热的配置
+            body = {
+                "BrandCode": brand,
+                "WorkstageCode": "LD5",
+                "TagReads": [
+                    "5H.5H.LD5_KL2226_TT1StandardTemp1",
+                    "5H.5H.LD5_KL2226_TT1StandardTemp2"
+                ]
+            }
+            res = requests.post(CONFIG_URL, json=body)
+            if (res.status_code / 100) == 2:
+                json_obj = json.loads(res.text)
+                rows = json_obj.get('data').get('Rows')
+                standard_1 = default_1
+                standard_2 = default_2
+                for row in rows:
+                    if row.get('TagRead') == "5H.5H.LD5_KL2226_TT1StandardTemp1":
+                        standard_1 = float(row.get('ParmSet')) - 3
+                    if row.get('TagRead') == "5H.5H.LD5_KL2226_TT1StandardTemp2":
+                        standard_2 = float(row.get('ParmSet')) - 3
+                return None, {
+                    'standard_1': standard_1,
+                    'standard_2': standard_2
+                }
+            else:
+                return res.text, None
+        except Exception as e:
+            logging.error(e)
+            return str(e), None
+
     def init_model(self, next_range_1: int, next_range_2: int):
         self.head_model = HeadModel()
         self.tail_model = TailModel(next_range_1, next_range_2)
@@ -144,9 +179,14 @@ class Determiner:
             if not current_batch or current_batch != current_data[BATCH]:
                 current_batch = current_data[BATCH]
                 save_config('current_batch', current_batch)
-                # TODO 需要更换
-                # self.init_model(current_data[WARM_TEMP1], current_data[WARM_TEMP2])
-                self.init_model(130, 115)
+
+                err, standard_obj = self.read_standard(current_brand, DEFAULT_STANDARD_1, DEFAULT_STANDARD_2)
+                if not err:
+                    logging.info('Get standard success: {}'.format(standard_obj))
+                    self.init_model(standard_obj.get('standard_1'), standard_obj.get('standard_2'))
+                else:
+                    logging.error('Get standard error: {}'.format(err))
+                    self.init_model(DEFAULT_STANDARD_1, DEFAULT_STANDARD_2)
 
             # 当前点的流量增长到了 2000 --> HeadModel
             if float(last_data[FLOW]) < FLOW_LIMIT < float(current_data[FLOW]):

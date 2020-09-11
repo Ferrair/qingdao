@@ -261,6 +261,10 @@ def gen_debug_info(current_data):
     debug_info['flow'] = current_data[FLOW]
     debug_info['temp1'] = current_data[TEMP1]
     debug_info['temp2'] = current_data[TEMP2]
+
+    debug_info['temp1_current'] = current_data[TEMP1_CURRENT]
+    debug_info['temp2_current'] = current_data[TEMP2_CURRENT]
+
     debug_info['work_state1'] = current_data[WORK_STATUS1]
     debug_info['work_state2'] = current_data[WORK_STATUS2]
 

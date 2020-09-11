@@ -5,7 +5,7 @@ import numpy as np
 
 plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
 
-filename = '../logs/pred_log_4.txt'
+filename = '/Users/bytedance/Qihang/青岛/数据/0910测试log/pred_log.txt'
 y_pred = []
 y_true = []
 flow = []
@@ -18,6 +18,8 @@ with open(filename) as f:
         y_true.append([line.get('debug_info').get('temp1'), line.get('debug_info').get('temp2')])
         flow.append(line.get('debug_info').get('flow'))
 
+y_true = y_true
+y_pred = y_pred
 y_true = np.array(y_true)
 y_pred = np.array(y_pred)
 
