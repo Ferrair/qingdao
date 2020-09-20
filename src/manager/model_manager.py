@@ -43,15 +43,19 @@ def humid_stable(original_humid: list, setting: float) -> bool:
     :param setting: 出口水分设定值
     :return:
     """
-    if len(original_humid) < 10:
-        return False
+    try:
+        if len(original_humid) < 10:
+            return False
 
-    original_humid = original_humid[-10:]
-    original_humid_diff = np.array([abs(i - setting) for i in original_humid])
-    if np.any(original_humid_diff > 0.1):
-        return False
+        original_humid = original_humid[-10:]
+        original_humid_diff = np.array([abs(float(i) - setting) for i in original_humid])
+        if np.any(original_humid_diff > 0.1):
+            return False
 
-    return True
+        return True
+    except Exception as e:
+        logging.error('humid_stable error: {}'.format(e))
+        return False
 
 
 class Determiner:
@@ -98,6 +102,7 @@ class Determiner:
                 ]
             }
             res = requests.post(CONFIG_URL, json=body)
+            logging.info('Standard: {} {}'.format(res.status_code, res.text))
             if (res.status_code / 100) == 2:
                 json_obj = json.loads(res.text)
                 rows = json_obj.get('data').get('Rows')
@@ -115,7 +120,6 @@ class Determiner:
             else:
                 return res.text, None
         except Exception as e:
-            logging.error(e)
             return str(e), None
 
     def init_model(self, next_range_1: int, next_range_2: int):
@@ -158,6 +162,7 @@ class Determiner:
         current_data = df.iloc[len_ - 1]  # 最新的一条数据
         last_data = df.iloc[len_ - 2]  # 上一秒一条数据
         current_batch = read_config('current_batch')
+        logging.info('Load current batch: {}'.format(current_batch))
         current_brand = current_data[BRADN]
 
         # current_batch = None
@@ -188,6 +193,7 @@ class Determiner:
                     logging.error('Get standard error: {}'.format(err))
                     self.init_model(DEFAULT_STANDARD_1, DEFAULT_STANDARD_2)
 
+            logging.info('Checkpoint 1 --- Check Stage')
             # 当前点的流量增长到了 2000 --> HeadModel
             if float(last_data[FLOW]) < FLOW_LIMIT < float(current_data[FLOW]):
                 self.head_flag = True
@@ -203,7 +209,8 @@ class Determiner:
                 self.tail_flag = False
 
             # 当前就是生产阶段，或者出口水分已稳定 --> ProductModel
-            if self.produce_flag is True or humid_stable(list(df[HUMID_AFTER_DRYING].values), criterion[current_brand]):
+            if self.produce_flag is True or humid_stable(list(df[HUMID_AFTER_DRYING].values),
+                                                         float(criterion[current_brand])):
                 self.head_flag = False
                 self.transition_flag = False
                 self.produce_flag = True
@@ -216,6 +223,7 @@ class Determiner:
                 self.produce_flag = False
                 self.tail_flag = True
 
+            logging.info('Checkpoint 2 --- Check Stage Default')
             # 兜底策略
             if not self.head_flag and not self.produce_flag and not self.tail_flag and not self.transition_flag:
                 if int(current_data[WORK_STATUS1]) == 32:
@@ -237,12 +245,13 @@ class Determiner:
                     raise Exception('Invalid work status. So we will use last 2 temp as current temp. FLOW: {}'.format(
                         current_data[FLOW]))
 
+            logging.info('Checkpoint 3 --- Check Stage Finish')
             if self.head_flag:
                 logging.info('Current in Head Model.')
                 try:
                     humid_after_cut = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
-                    logging.error(
+                    logging.info(
                         'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
                     humid_after_cut = 17
                 pred = self.head_model.predict(brand=current_data[BRADN], flow=float(current_data[FLOW]),
@@ -259,7 +268,7 @@ class Determiner:
                 try:
                     input_humid = sum(input_humid) / len(input_humid)
                 except ZeroDivisionError as e:
-                    logging.error('ZeroDivisionError: {}, {}'.format(sum(input_humid), len(input_humid)))
+                    logging.info('ZeroDivisionError: {}, {}'.format(sum(input_humid), len(input_humid)))
                     input_humid = 17
                 # 暂时使用Head模型，增加了下惩罚项
 
