@@ -124,8 +124,8 @@ class Determiner:
                 "BrandCode": brand,
                 "WorkstageCode": "LD5",
                 "TagReads": [
-                    "5H.5H.LD5_KL2226_TT1StandardTemp1",
-                    "5H.5H.LD5_KL2226_TT1StandardTemp2"
+                    TEMP_SETTING1,
+                    TEMP_SETTING2
                 ]
             }
             res = requests.post(CONFIG_URL, json=body)
@@ -135,9 +135,9 @@ class Determiner:
                 standard_1 = default_1
                 standard_2 = default_2
                 for row in rows:
-                    if row.get('TagRead') == "5H.5H.LD5_KL2226_TT1StandardTemp1":
+                    if row.get('TagRead') == TEMP_SETTING1:
                         standard_1 = float(row.get('ParmSet')) - 3
-                    if row.get('TagRead') == "5H.5H.LD5_KL2226_TT1StandardTemp2":
+                    if row.get('TagRead') == TEMP_SETTING2:
                         standard_2 = float(row.get('ParmSet')) - 3
                 return None, {
                     'standard_1': standard_1,
