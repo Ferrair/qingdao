@@ -1,5 +1,7 @@
 ROOT_PATH = '/Users/bytedance/PycharmProjects/qingdao'
 MODEL_SAVE_DIR = ROOT_PATH + '/model_save/'
+TRAINING_DATA_DIR = ROOT_PATH + '/training_data/'
+CONFIG_PATH = ROOT_PATH + '/src/config/'
 CURRENT_MODE_NAME = None
 CONTROL_URL = "http://localhost:64035/api/PLCAPI"
 CONFIG_URL = "http://10.100.100.115:8077/api/ParmStandard/GetTable"

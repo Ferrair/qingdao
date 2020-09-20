@@ -11,7 +11,7 @@ from src.data_processing.processing import FEATURE_RANGE, calc_feature_lr, SPLIT
 from src.utils.util import *
 
 determiner = Determiner()
-one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
+one_hot = read_txt_to_dict(CONFIG_PATH + load_current_model('one-hot-brands'))
 
 
 def _predict(originals_, features_, pred_start_time=0, sample_time=0):
