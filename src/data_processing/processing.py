@@ -135,7 +135,7 @@ def adjust(pred: list, original_humid: list, setting: float) -> list:
     if np.all(original_humid == 0):
         return pred
     original_humid_diff = np.array([i - setting for i in original_humid])
-    ratio = 0.6
+    ratio = 1.2
     if np.all(original_humid_diff > 0.05):
         pred[0] += np.sum(original_humid_diff) * ratio
         pred[1] += np.sum(original_humid_diff) * ratio

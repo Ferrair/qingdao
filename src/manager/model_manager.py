@@ -97,8 +97,8 @@ class Determiner:
                 "BrandCode": brand,
                 "WorkstageCode": "LD5",
                 "TagReads": [
-                    TEMP_SETTING1,
-                    TEMP_SETTING2
+                    STANDARD_TEMP_1,
+                    STANDARD_TEMP_2
                 ]
             }
             res = requests.post(CONFIG_URL, json=body)
@@ -109,9 +109,9 @@ class Determiner:
                 standard_1 = default_1
                 standard_2 = default_2
                 for row in rows:
-                    if row.get('TagRead') == TEMP_SETTING1:
+                    if row.get('TagRead') == STANDARD_TEMP_1:
                         standard_1 = float(row.get('ParmSet')) - 3
-                    if row.get('TagRead') == TEMP_SETTING2:
+                    if row.get('TagRead') == STANDARD_TEMP_2:
                         standard_2 = float(row.get('ParmSet')) - 3
                 return None, {
                     'standard_1': standard_1,
@@ -254,8 +254,11 @@ class Determiner:
                     logging.info(
                         'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
                     humid_after_cut = 17
-                pred = self.head_model.predict(brand=current_data[BRADN], flow=float(current_data[FLOW]),
+                pred = self.head_model.predict(brand=current_data[BRADN],
+                                               flow=float(current_data[FLOW]),
                                                humid_after_cut=humid_after_cut,
+                                               standard_temp_2=float(current_data[STANDARD_TEMP_2]),
+                                               standard_temp_1=float(current_data[STANDARD_TEMP_1]),
                                                last_temp_1=float(current_data[TEMP1]),
                                                last_temp_2=float(current_data[TEMP2]))
                 logging.info('Head timer: {}'.format(self.head_model.timer))
@@ -273,9 +276,11 @@ class Determiner:
                 # 暂时使用Head模型，增加了下惩罚项
 
                 last_temp_1 = float(
-                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand] * input_humid * 1.1)
+                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
+                    * input_humid * 1.1 + float(current_data[STANDARD_TEMP_1]))
                 last_temp_2 = float(
-                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand] * input_humid * 1.1)
+                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
+                    * input_humid * 1.1 + float(current_data[STANDARD_TEMP_1]))
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
