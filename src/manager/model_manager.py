@@ -280,7 +280,7 @@ class Determiner:
                     * input_humid * 1.1 + float(current_data[STANDARD_TEMP_1]))
                 last_temp_2 = float(
                     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
-                    * input_humid * 1.1 + float(current_data[STANDARD_TEMP_1]))
+                    * input_humid * 1.1 + float(current_data[STANDARD_TEMP_2]))
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:

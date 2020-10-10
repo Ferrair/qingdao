@@ -16,8 +16,8 @@ TEMP2_CURRENT = '5H.5H.LD5_KL2226_BucketTemp2PV'  # '二区温度实际值'
 HUMID_AFTER_DRYING = '5H.5H.LD5_KL2226_TT1LastMoisPV'  # '烘丝后出口水分'
 HUMID_BEFORE_DRYING = '5H.5H.LD5_KL2226_InputMoisture'  # '烘丝后入口水分'
 CUT_HALF_FULL = '6032.6032.LD5_2220_GP2220STATUS3'  # '5000叶丝线暂存柜半满'
-STANDARD_TEMP_1 = '5H.5H.LD5_KL2226_TT1StandardTemp1' # 一区标准点位
-STANDARD_TEMP_2 = '5H.5H.LD5_KL2226_TT1StandardTemp2' # 二区标准点位
+STANDARD_TEMP_1 = '5H.5H.LD5_KL2226_TT1StandardTemp1'  # 一区标准点位
+STANDARD_TEMP_2 = '5H.5H.LD5_KL2226_TT1StandardTemp2'  # 二区标准点位
 
 TEST_TEMP1 = '5H.5H.LD5_KL2226_BucketTemp1SP'  # '一区温度设定值'
 TEST_TEMP2 = '5H.5H.LD5_KL2226_BucketTemp2SP'  # '二区温度设定值'
