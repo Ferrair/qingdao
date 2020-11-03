@@ -175,8 +175,18 @@ def _predict(originals, features, time_dict):
             logging.info('Pred before adjust: {}, {}, REAL: {}, {}'.format(pred[0], pred[1],
                                                                            current_data[HUMID_AFTER_DRYING],
                                                                            criterion[brand]))
+
             pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
             pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+            pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
+
+        # 头料阶段 + 过渡阶段 也需要上下限
+        if determiner.head_flag or determiner.transition_flag:
+            logging.info('Pred before adjust: {}, {}, REAL: {}, {}'.format(pred[0], pred[1],
+                                                                           current_data[HUMID_AFTER_DRYING],
+                                                                           criterion[brand]))
+
+            pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand], 5.0)
             pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
         pred = add_random(pred)
         logging.info('Pred after adjust: {}, {} ---- REAL: {}, {}'.format(pred[0], pred[1],

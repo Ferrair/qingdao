@@ -74,12 +74,12 @@ class HeadModel(BasicModel):
         # region 1
         if self.timer >= self.range_1_lag:
             last_temp_1 = float(
-                self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_after_cut + standard_temp_1)
+                self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_after_cut * 1.1 + standard_temp_1)
 
         # region 2
         if self.timer >= self.range_2_lag:
             last_temp_2 = float(
-                self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_after_cut + standard_temp_2)
+                self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_after_cut * 1.1 + standard_temp_2)
 
         self.timer += 1
         return [last_temp_1, last_temp_2]

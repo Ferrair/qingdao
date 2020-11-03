@@ -103,9 +103,10 @@ def clip_last(pred: np.array, last_temp_1: float, last_temp_2: float) -> np.arra
     return pred
 
 
-def clip(pred: np.array, criterion_1: float, criterion_2: float) -> np.array:
+def clip(pred: np.array, criterion_1: float, criterion_2: float, bound: float = 2.0) -> np.array:
     """
     clip the predicted to avoid over-estimated
+    :param bound:
     :param pred: predicted values
     :param criterion_1: 一区温度标准
     :param criterion_2: 二区温度标准
@@ -113,7 +114,6 @@ def clip(pred: np.array, criterion_1: float, criterion_2: float) -> np.array:
     """
     if len(pred) is not 2:
         raise Exception('Predicted value MUST have 2 value')
-    bound = 2.0
     pred[0] = np.clip(pred[0], criterion_1 - bound, criterion_1 + bound)
     pred[1] = np.clip(pred[1], criterion_2 - bound, criterion_2 + bound)
     return pred
