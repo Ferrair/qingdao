@@ -3,6 +3,7 @@ import logging
 import os
 from queue import Queue
 
+import pymssql
 import pandas as pd
 import numpy as np
 import requests
@@ -89,6 +90,42 @@ class Determiner:
 
         self.q = Queue()
 
+        self.adjust_params = {}
+
+        self.counter = 0
+
+    def read_adjust_params(self, brand):
+        sql = """
+            SELECT FeedbackN, FeedbackM, FeedbackK, FeedbackS
+            FROM ML.dbo.FeedbackValue WHERE Process = 'LD5' AND Batch = '{}'
+        """.format(brand)
+        # default values
+        n, m, k, s = 5, 20, 50, 2
+        try:
+            # server, user, password, database
+            conn = pymssql.connect(server='10.100.100.114',
+                                   user='sa',
+                                   password='Password01!',
+                                   database='ML')
+            cursor = conn.cursor()
+            cursor.execute(sql)
+            row = cursor.fetchone()
+            if row:
+                logging.info('Read feedback DB success')
+                n = int(row[0])
+                m = int(row[1])
+                k = float(row[2])
+                s = float(row[3])
+        except Exception as e:
+            logging.error(e)
+
+        self.adjust_params = {
+            "n": n,
+            "m": m,
+            "k": k,
+            "s": s
+        }
+
     @classmethod
     def read_standard(cls, brand, default_1, default_2):
         try:
@@ -149,6 +186,8 @@ class Determiner:
 
         self.q = Queue()
 
+        self.counter = 0
+
     def dispatch(self, df: pd.DataFrame, features: np.array) -> list:
         """
         :param df: 一个Windows长度的数据，数组最后一个点的数据为当前时刻的数据
@@ -192,6 +231,9 @@ class Determiner:
                 else:
                     logging.error('Get standard error: {}'.format(err))
                     self.init_model(DEFAULT_STANDARD_1, DEFAULT_STANDARD_2)
+
+                # 在每个批次开始的时候读取反馈控制
+                self.read_adjust_params(brand=current_brand)
 
             logging.info('Checkpoint 1 --- Check Stage')
             # 当前点的流量增长到了 2000 --> HeadModel
@@ -285,6 +327,7 @@ class Determiner:
 
             if self.produce_flag:
                 logging.info('Current in Produce Model.')
+                self.counter += 1
                 pred = self.produce_model.predict(features)
                 return list(pred.ravel())
 

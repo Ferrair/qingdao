@@ -178,6 +178,19 @@ def _predict(originals, features, time_dict):
 
             pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
             pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+            try:
+                n = int(determiner.adjust_params.get("n"))
+                m = int(determiner.adjust_params.get("m"))
+                k = float(determiner.adjust_params.get("k"))
+                s = float(determiner.adjust_params.get("s"))
+                x = float(np.mean(df[HUMID_AFTER_DRYING].values[-m:]) - criterion[brand])
+                logging.info('Feedback: {}, {}, {}'.format(x, k, s))
+                if determiner.counter % n == 0:
+                    pred[0] += float(x * k * s)
+                    pred[1] += float(x * k * s)
+            except Exception as e:
+                logging.error('Feedback error: {}'.format(e))
+
             pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
 
         # 头料阶段 + 过渡阶段 也需要上下限
