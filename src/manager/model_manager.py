@@ -7,11 +7,14 @@ import pymssql
 import pandas as pd
 import numpy as np
 import requests
+from sklearn.metrics import mean_absolute_error
 from src.config.config import *
 from src.model.head import HeadModel
 from src.model.lr_model import LRModel
 from src.model.tail import TailModel
-from src.utils.util import read_config, save_config
+from src.utils.util import read_config, save_config, get_current_time
+
+from joblib import dump
 
 
 def load_all_model_dir() -> list:
@@ -20,6 +23,10 @@ def load_all_model_dir() -> list:
 
 def load_latest_model_dir() -> str:
     return load_all_model_dir()[0]
+
+
+def make_new_model_dir():
+    os.mkdir(MODEL_SAVE_DIR + "/" + get_current_time())
 
 
 def load_current_model(param: str) -> str:
@@ -32,7 +39,7 @@ def load_current_model(param: str) -> str:
             if os.path.splitext(file)[0].split('#')[1] == 'produce':
                 return current_dir + "/" + os.path.splitext(file)[0]
     elif param in ['head', 'one-hot-brands']:
-        return current_dir + "/" + current_dir + '#' + param
+        return param
     else:
         raise Exception('param MUST in [produce, transition, head, one-hot-brands], now is ' + param)
 
@@ -57,6 +64,32 @@ def humid_stable(original_humid: list, setting: float) -> bool:
     except Exception as e:
         logging.error('humid_stable error: {}'.format(e))
         return False
+
+
+def train_and_save_produce_model(X: np.array, X_test: np.array, y: np.array, y_test: np.array):
+    """
+    训练生产阶段模型
+    :param y_test:
+    :param X_test:
+    :param X:
+    :param y:
+    :return:
+    """
+    new_model = LRModel()
+    logging.info("Training ...")
+    new_model.train(X, y)
+
+    X_test_scaler = new_model.scaler.transform(X_test)
+    pred = new_model.model.predict(X_test_scaler)
+    mae = round(mean_absolute_error(y_test[:, :2], pred[:, :2]), 3)
+    logging.info('mae: ', mae)
+
+    make_new_model_dir()
+
+    model_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + get_current_time() + "#produce" + "#" + str(mae)
+
+    dump(new_model.model, model_filename + '.joblib')
+    dump(new_model.scaler, model_filename + '.pkl')
 
 
 class Determiner:
@@ -168,15 +201,17 @@ class Determiner:
         except Exception as e:
             return str(e), None
 
+    def update_model(self):
+        if self.produce_model is not None:
+            self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
+
     def init_model(self, next_range_1: int, next_range_2: int):
         self.head_model = HeadModel()
         self.tail_model = TailModel(next_range_1, next_range_2)
         self.produce_model = LRModel()
-        self.transition_model = LRModel()
 
-        self.head_model.load(MODEL_SAVE_DIR + load_current_model('head'))
+        self.head_model.load(CONFIG_PATH + load_current_model('head'))
         self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
-        self.transition_model.load(MODEL_SAVE_DIR + load_current_model('transition'))
 
         # 计算头料的
         self.head_flag = False

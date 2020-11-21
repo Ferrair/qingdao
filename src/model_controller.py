@@ -4,8 +4,9 @@ import warnings
 
 from src.PythonDeviceControlLib.HSControl import *
 from src.config.error_code import *
-from src.manager.model_manager import load_current_model, Determiner
+from src.manager.model_manager import load_current_model, Determiner, train_and_save_produce_model
 from src.data_processing.processing import *
+
 from flask import Flask, jsonify, request
 import pandas as pd
 from src.config.config import *
@@ -228,10 +229,97 @@ def _predict(originals, features, time_dict):
     return wrap_success(result)
 
 
+def gen_training_file(input_dir, csv_file):
+    """
+    输入带有原始数据的文件夹，生成用于训练的csv文件
+    :param input_dir:含有原始数据的文件夹，原始数据为.log格式
+    :param csv_file: 目标csv文件
+    :return:
+    """
+    log_files = sorted(os.listdir(input_dir))
+    read_heading = True
+    heading = []
+    data = []  # maybe chunk
+    for index, file in enumerate(log_files):
+        logging.info("Reading log files, current: {}, progress: {}/{}".format(file, index + 1, len(log_files)))
+        if not file.endswith('.log'):
+            logging.info("Unknown file format: {}".format(file))
+            continue
+        with open(input_dir + "/" + file, 'r') as f:
+            for line in f.readlines():
+                line_json = json.loads(line)
+                if read_heading:
+                    value_ids = [entry['id'] for entry in line_json['values']]
+                    heading = [TIME] + value_ids
+                    read_heading = False
+
+                values = [line_json[TIME]] + [entry['v'] for entry in line_json['values']]
+                data.append(values)
+
+    logging.info("Building DataFrame ...")
+    df = pd.DataFrame(columns=heading, data=data)
+    logging.info("Writing DataFrame into {}".format(csv_file))
+    df.to_csv(csv_file)
+
+
+def train_model(train_file):
+    df = pd.read_csv(train_file)
+    df = df.drop(['Unnamed: 0'], axis=1)
+
+    df = df.dropna(axis=0)
+    # 读取Mapping关系
+    mapping = read_mapping()
+    # 把列名改成中文
+    columns = list(df.columns)
+    new_columns = []
+    for column in columns:
+        if column in mapping.keys():
+            new_columns.append(mapping[column])
+        else:
+            new_columns.append(column)
+    df.columns = new_columns
+    # 按牌号分割
+    logging.info("Splitting data by brand ...")
+    data_per_brand = split_data_by_brand(df)
+    # 构造训练数据
+    logging.info("Generating training data ...")
+    X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
+        generate_all_training_data(data_per_brand, criterion, one_hot)
+    # 训练并保存模型
+    train_and_save_produce_model(X_train, X_test, y_train, y_test)
+
+
+@app.route('/api/train', methods=["POST"])
+def train_api():
+    try:
+        data = request.get_json()
+        input_dir = TRAINING_DATA_DIR + data.get('training_data_dir')
+        csv_file = input_dir + '/train_data.csv'
+        logging.info("Generating csv file for training ...")
+        gen_training_file(input_dir, csv_file)
+
+        # TODO: 搞成异步的任务，或者搞成脚本来执行
+        train_model(csv_file)
+        return wrap_success('OK')
+
+    except Exception as e:
+        logging.error(e)
+        return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
+
+
+@app.route('/api/update_model', methods=["POST"])
+def update_model():
+    try:
+        determiner.update_model()
+        return wrap_success('Current model: {}'.format(load_current_model('produce').split('/')[0]))
+    except Exception as e:
+        logging.error(e)
+        return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
+
+
 @app.route('/api/predict', methods=["POST"])
 def predict_api():
     try:
-
         data = request.get_json()
         pred_start_time = int(time.time() * 1000)
         sample_time = data.get('time', 0)
@@ -419,8 +507,8 @@ def load_temp_criterion_api():
 
 if __name__ == '__main__':
     create_dir(MODEL_SAVE_DIR)
-    one_hot = read_txt_to_dict(MODEL_SAVE_DIR + load_current_model('one-hot-brands'))
+    one_hot = read_txt_to_dict(CONFIG_PATH + load_current_model('one-hot-brands'))
     environment = read_config('env')
-    print('Current model: ', load_current_model('produce').split('/')[0])
-    print('Current env: ', environment)
+    logging.info('Current model: ', load_current_model('produce').split('/')[0])
+    logging.info('Current env: ', environment)
     app.run(host='0.0.0.0', port=5000)
