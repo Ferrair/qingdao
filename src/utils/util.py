@@ -15,7 +15,7 @@ def format_time(time_str: str):
 
 
 def get_current_time() -> str:
-    return time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+    return time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime(time.time()))
 
 
 def create_dir(path: str):

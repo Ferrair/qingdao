@@ -5,7 +5,7 @@ import numpy as np
 
 plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
 
-filename = '/Users/bytedance/Qihang/青岛/数据/0910测试log/pred_log.txt'
+filename = '/Users/bytedance/Qihang/青岛/rslt.txt'
 y_pred = []
 y_true = []
 flow = []

@@ -122,9 +122,9 @@ def check_features_correct(features, originals):
 
 
 def _predict(originals, features, time_dict):
-    pred_start_time = time_dict.get('pred_start_time', 0)
+    # pred_start_time = time_dict.get('pred_start_time', 0)
+    # kafka_time = time_dict.get('kafka_time', 0)
     sample_time = time_dict.get('sample_time', 0)
-    kafka_time = time_dict.get('kafka_time', 0)
 
     # Check Feature
     # 判断Flink计算的特征是否正确
@@ -169,43 +169,45 @@ def _predict(originals, features, time_dict):
 
     try:
         pred = determiner.dispatch(df=df, features=features)
+        logging.info('counter: {} -- Pred before adjust: {}, {}, HUMID: {}'
+                     .format(determiner.counter, pred[0], pred[1], current_data[HUMID_AFTER_DRYING]))
 
         # 只有在生产阶段，才做这些操作
         if determiner.produce_flag:
-            logging.info('Pred before adjust: {}, {}, REAL: {}, {}'.format(pred[0], pred[1],
-                                                                           current_data[HUMID_AFTER_DRYING],
-                                                                           criterion[brand]))
-
             pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
-            pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
+            logging.info('Pred after adjust self: {}, {}'.format(pred[0], pred[1]))
             try:
                 n = int(determiner.adjust_params.get("n"))
                 m = int(determiner.adjust_params.get("m"))
                 k = float(determiner.adjust_params.get("k"))
                 s = float(determiner.adjust_params.get("s"))
                 x = float(np.mean(df[HUMID_AFTER_DRYING].values[-m:]) - criterion[brand])
-                logging.info('Feedback: {}, {}, {}'.format(x, k, s))
-                if determiner.counter % n == 0:
+                logging.info('Feedback: {}, {}, {}, {}, {}, {}'.format(determiner.counter, n, m, x, k, s))
+                if int(determiner.counter) % n == 0:
                     pred[0] += float(x * k * s)
                     pred[1] += float(x * k * s)
+                    logging.info('Pred after feedback {}, {}'.format(pred[0], pred[1]))
             except Exception as e:
                 logging.error('Feedback error: {}'.format(e))
 
-            pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
-
-        # 头料阶段 + 过渡阶段 也需要上下限
-        if determiner.head_flag or determiner.transition_flag:
-            logging.info('Pred before adjust: {}, {}, REAL: {}, {}'.format(pred[0], pred[1],
-                                                                           current_data[HUMID_AFTER_DRYING],
-                                                                           criterion[brand]))
-
-            pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand], 5.0)
-            pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
         pred = add_random(pred)
-        logging.info('Pred after adjust: {}, {} ---- REAL: {}, {}'.format(pred[0], pred[1],
-                                                                          current_data[TEMP1],
-                                                                          current_data[TEMP2]))
-        pred_end_time = int(time.time() * 1000)
+        ######
+        # clip
+        max_1 = int(determiner.adjust_params.get("max_1"))
+        max_2 = int(determiner.adjust_params.get("max_2"))
+        min_1 = float(determiner.adjust_params.get("min_1"))
+        min_2 = float(determiner.adjust_params.get("min_2"))
+
+        pred[0] = np.clip(pred[0], min_1, max_1)
+        pred[1] = np.clip(pred[1], min_2, max_2)
+
+        pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
+        ######
+
+        logging.info('Pred after all: {}, {} ---- REAL: {}, {}'.format(pred[0], pred[1],
+                                                                       current_data[TEMP1],
+                                                                       current_data[TEMP2]))
+
     except Exception as e:
         logging.error(e)
         # TODO
@@ -216,13 +218,8 @@ def _predict(originals, features, time_dict):
         'brand': brand,  # str
         'batch': batch,  # str
         'tempRegion1': pred[0],  # float
-        'is_correct': is_correct,
         'tempRegion2': pred[1],  # float
         'time': sample_time,  # 采样数据的采样时间 # float
-        'kafka_time': kafka_time,  # 刚进入flink的瞬间的时间 # float
-        'upstream_consume': pred_start_time - sample_time,  # 所有上游任务消耗的时间 # float
-        'pred_consume': pred_end_time - pred_start_time,  # 预测消耗的时间 # float
-        'plc_consume': 0,  # call plc 消耗的时间 # float
         'version': 'v2020.08.12',
         'debug_info': gen_debug_info(current_data)
     }
@@ -282,13 +279,12 @@ def gen_debug_info(current_data):
 
     debug_info['current_time'] = int(time.time() * 1000)  # 当前时间
     debug_info['flow'] = current_data[FLOW]
-    debug_info['temp1'] = current_data[TEMP1]
-    debug_info['temp2'] = current_data[TEMP2]
-
+    debug_info['temp1_setting'] = current_data[TEMP1]
+    debug_info['temp2_setting'] = current_data[TEMP2]
     debug_info['temp1_current'] = current_data[TEMP1_CURRENT]
     debug_info['temp2_current'] = current_data[TEMP2_CURRENT]
-
-    debug_info['work_state1'] = current_data[WORK_STATUS1]
+    debug_info['humid_out'] = current_data[HUMID_AFTER_DRYING]
+    debug_info['humid_in'] = current_data[HUMID_BEFORE_DRYING]
     debug_info['work_state2'] = current_data[WORK_STATUS2]
 
     return debug_info
