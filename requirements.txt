@@ -34,7 +34,7 @@ pickleshare==0.7.5
 Pillow==5.3.0
 prometheus-client==0.4.2
 prompt-toolkit==1.0.15
-requests==2.19.1
+requests==2.20.0
 scikit-learn==0.22.0
 scipy==1.5.3
 simplegeneric==0.8.1
