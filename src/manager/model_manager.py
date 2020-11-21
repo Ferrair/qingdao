@@ -96,11 +96,11 @@ class Determiner:
 
     def read_adjust_params(self, brand):
         sql = """
-            SELECT FeedbackN, FeedbackM, FeedbackK, FeedbackS
+            SELECT FeedbackN, FeedbackM, FeedbackK, FeedbackS, Tagcode, Min, Max
             FROM ML.dbo.FeedbackValue WHERE Process = 'LD5' AND Batch = '{}'
         """.format(brand)
         # default values
-        n, m, k, s = 5, 20, 50, 2
+        n, m, k, s, min_1, max_1, min_2, max_2 = 1, 30, 10, 0.7, 130, 140, 130, 140
         try:
             # server, user, password, database
             conn = pymssql.connect(server='10.100.100.114',
@@ -109,13 +109,18 @@ class Determiner:
                                    database='ML')
             cursor = conn.cursor()
             cursor.execute(sql)
-            row = cursor.fetchone()
-            if row:
-                logging.info('Read feedback DB success')
+            rows = cursor.fetchall()
+            for row in rows:
                 n = int(row[0])
                 m = int(row[1])
                 k = float(row[2])
                 s = float(row[3])
+                if row[4] == STANDARD_TEMP_1:
+                    min_1 = int(row[5])
+                    max_1 = int(row[6])
+                if row[4] == STANDARD_TEMP_2:
+                    min_2 = int(row[5])
+                    max_2 = int(row[6])
         except Exception as e:
             logging.error(e)
 
@@ -123,7 +128,11 @@ class Determiner:
             "n": n,
             "m": m,
             "k": k,
-            "s": s
+            "s": s,
+            "max_1": max_1,
+            "min_1": min_1,
+            "max_2": max_2,
+            "min_2": min_2,
         }
 
     @classmethod
