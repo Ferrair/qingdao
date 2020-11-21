@@ -219,11 +219,11 @@ def gen_training_file(input_dir, csv_file):
     log_files = sorted(os.listdir(input_dir))
     read_heading = True
     heading = []
-    data = [] # maybe chunk
+    data = []  # maybe chunk
     for index, file in enumerate(log_files):
-        logging.info("Reading log files, current: {}, progress: {}/{}".format(file, index+1, len(log_files)))
+        logging.info("Reading log files, current: {}, progress: {}/{}".format(file, index + 1, len(log_files)))
         if not file.endswith('.log'):
-            logging.info("Unkonwn file format: {}".format(file))
+            logging.info("Unknown file format: {}".format(file))
             continue
         with open(input_dir + "/" + file, 'r') as f:
             for line in f.readlines():
@@ -238,7 +238,7 @@ def gen_training_file(input_dir, csv_file):
 
     logging.info("Building DataFrame ...")
     df = pd.DataFrame(columns=heading, data=data)
-    logging.info("Writting DataFrame into {}".format(csv_file))
+    logging.info("Writing DataFrame into {}".format(csv_file))
     df.to_csv(csv_file)
 
 
@@ -274,10 +274,11 @@ def train_api():
     try:
         data = request.get_json()
         input_dir = TRAINING_DATA_DIR + data.get('training_data_dir')
-        csv_file = input_dir + '/traindata.csv'
+        csv_file = input_dir + '/train_data.csv'
         logging.info("Generating csv file for training ...")
         gen_training_file(input_dir, csv_file)
 
+        # TODO: 搞成异步的任务，或者搞成脚本来执行
         train_model(csv_file)
         return wrap_success('OK')
 
@@ -356,7 +357,6 @@ def gen_debug_info(current_data):
     debug_info['work_state2'] = current_data[WORK_STATUS2]
 
     return debug_info
-
 
 
 def logging_in_disk(s):

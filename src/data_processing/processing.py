@@ -11,7 +11,6 @@ from sklearn.model_selection import train_test_split
 
 from src.utils.util import name_list_2_plc_list, format_time
 
-
 feature_name_columns = ['最终烟丝含水实际值', '烘丝出口温度', '瞬时流量', '累计流量',
                         '罩压力反馈值', '罩压力实际值', '桶温区1反馈值', '桶温区1实际值', '桶温区1设定值', '桶温区2反馈值',
                         '桶温区2实际值', '桶温区2设定值', '工艺气体温度反馈值', '工艺气体温度实际值',
@@ -159,6 +158,7 @@ def adjust(pred: list, original_humid: list, setting: float) -> list:
         pred[1] -= np.sum(original_humid_diff) * ratio
     return pred
 
+
 # ----------------训练相关函数------------------
 
 def split_data_by_brand(data: pd.DataFrame) -> dict:
@@ -203,14 +203,14 @@ def calc_feature(item_: pd.DataFrame, feature_end: int, feature_range: int, spli
     :return: feature array
     """
     feature_start = feature_end - feature_range
-    #print('------------------')
+    # print('------------------')
     feature_slice = item_[feature_name_columns].iloc[feature_start: feature_end].values
-    #print(len(feature_slice))
-    #print(split_num)
+    # print(len(feature_slice))
+    # print(split_num)
 
     # shape = (SPLIT_NUM, FEATURE_RANGE / SPLIT_NUM, FEATURE_NUM)
     feature_slice = np.array(np.vsplit(feature_slice, split_num))
-    #print(feature_slice.shape)
+    # print(feature_slice.shape)
     # shape = (5, SPLIT_NUM, FEATURE_NUM)
     # 比如，feature前80个都是均值，在这80个里面，被分为了SPLIT_NUM段，每一段都是FEATURE_NUM个features
     feature = np.concatenate([
@@ -221,8 +221,8 @@ def calc_feature(item_: pd.DataFrame, feature_end: int, feature_range: int, spli
         kurtosis(feature_slice, axis=1).ravel(),
     ])
 
-    #print(len(feature.ravel()))
-    #print('------------------')
+    # print(len(feature.ravel()))
+    # print('------------------')
     return feature.ravel()
 
 
@@ -273,7 +273,7 @@ def generate_brand_produce_training_data(item_brand, brand_index, setting, one_h
 
     for batch_index, item_batch in enumerate(item_brand):
         logging.info("|----Generating training data for batches, progress: {}"
-              .format(str(batch_index + 1) + "/" + str(len(item_brand))))
+                     .format(str(batch_index + 1) + "/" + str(len(item_brand))))
         item_batch = item_batch[item_batch[WORD_STATUS] == WORD_STATUS_PRODUCE]
         item_batch = item_batch.reset_index(drop=True)
         length = len(item_batch)
@@ -365,7 +365,7 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: d
 
     for brand_index, brand in enumerate(data_per_brand):
         logging.info("Generating training data for brands, current: {}, progress: {}"
-              .format(brand, str(brand_index + 1) + "/" + str(len(data_per_brand))))
+                     .format(brand, str(brand_index + 1) + "/" + str(len(data_per_brand))))
         start = datetime.now()
 
         brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_produce_training_data(
@@ -388,4 +388,3 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: d
     mapping_produce = concatenate(mapping_list)
 
     return train_test_split(X_produce, y_produce, mapping_produce, delta_produce, test_size=0.2, random_state=6)
-

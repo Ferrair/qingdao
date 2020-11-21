@@ -64,6 +64,8 @@ def humid_stable(original_humid: list, setting: float) -> bool:
 def train_and_save_produce_model(X: np.array, X_test: np.array, y: np.array, y_test: np.array):
     """
     训练生产阶段模型
+    :param y_test:
+    :param X_test:
     :param X:
     :param y:
     :return:
