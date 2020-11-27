@@ -113,9 +113,10 @@ def check_features_correct(features, originals):
             columns = list(originals[0].keys())
             data = [list(item.values()) for item in originals]
             computed_features = calc_feature_lr(pd.DataFrame(data, columns=columns), SPLIT_NUM)
-            if not np.array_equal(features, computed_features):
-                # logging.error('Flink Features process might not correct.')
-                return False, computed_features
+            # if not np.array_equal(features, computed_features):
+            #    logging.error('Flink Features process might not correct.')
+            #    return False, computed_features
+            return computed_features
     except Exception as e:
         logging.error(e)
         return False, features
@@ -155,9 +156,9 @@ def _predict(originals, features, time_dict):
             brand = DEFAULT_BRAND
 
     # len = 1650
-    if len(features) != 0 and len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
-        return wrap_failure(PARAMETERS_ERROR, 'len(features) should equals {}, current: {}'.format(
-            len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
+    # if len(features) != 0 and len(features) != (len(feature_name_columns) * 5 * SPLIT_NUM):
+    #     return wrap_failure(PARAMETERS_ERROR, 'len(features) should equals {}, current: {}'.format(
+    #         len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
 
     # check nan in features
     if sum(np.isnan(features)) > 0:
