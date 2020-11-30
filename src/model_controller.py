@@ -171,6 +171,7 @@ def _predict(originals, features, time_dict):
 
     try:
         pred = determiner.dispatch(df=df, features=features)
+        determiner.read_adjust_params(brand)
         logging.info('counter: {} -- Pred before adjust: {}, {}, HUMID: {}'
                      .format(determiner.counter, pred[0], pred[1], current_data[HUMID_AFTER_DRYING]))
 
