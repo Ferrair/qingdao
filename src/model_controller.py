@@ -116,7 +116,7 @@ def check_features_correct(features, originals):
             # if not np.array_equal(features, computed_features):
             #    logging.error('Flink Features process might not correct.')
             #    return False, computed_features
-            return computed_features
+            return False, computed_features
     except Exception as e:
         logging.error(e)
         return False, features
