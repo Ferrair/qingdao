@@ -47,14 +47,16 @@ class HeadModel(BasicModel):
         if self.stable_per_brand is None:
             raise Exception('No available stable_per_brand.')
 
-    def predict(self, brand: str, flow: int, humid_after_cut: int,
+    def predict(self, brand: str, flow: int, humid_after_cut: int, humid_before_drying: int,
                 last_temp_1: float, last_temp_2: float,
                 standard_temp_1: float, standard_temp_2: float) -> list:
         """
         predict in head stage
+
         :param standard_temp_2: 二区标准工作点位
         :param standard_temp_1: 一区标准工作点位
         :param flow: 流量
+        :param humid_before_drying: 烘前水分
         :param humid_after_cut: 切丝后出口水分
         :param last_temp_1: 上一个时间点的一区温度
         :param last_temp_2: 上一个时间点的二区温度
@@ -73,13 +75,17 @@ class HeadModel(BasicModel):
 
         # region 1
         if self.timer >= self.range_1_lag:
-            last_temp_1 = float(
-                self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_after_cut * 1.1 + standard_temp_1)
+            if self.timer >= self.range_1_lag + 120:
+                last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_after_cut * 1.1 + standard_temp_1)
+            else:
+                last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_before_drying * 1.1 + standard_temp_1)
 
         # region 2
         if self.timer >= self.range_2_lag:
-            last_temp_2 = float(
-                self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_after_cut * 1.1 + standard_temp_2)
+            if self.timer >= self.range_2_lag + 120:
+                last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_after_cut * 1.1 + standard_temp_2)
+            else:
+                last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_before_drying * 1.1 + standard_temp_2)
 
         self.timer += 1
         return [last_temp_1, last_temp_2]

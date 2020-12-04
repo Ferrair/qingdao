@@ -128,13 +128,13 @@ class Determiner:
         self.counter = 0
 
     def read_adjust_params(self, brand):
-        sql = """
-            SELECT FeedbackN, FeedbackM, FeedbackK, FeedbackS, Tagcode, Min, Max
-            FROM ML.dbo.FeedbackValue WHERE Process = 'LD5' AND Batch = '{}'
-        """.format(brand)
         # default values
         n, m, k, s, min_1, max_1, min_2, max_2 = 1, 30, 10, 0.7, 130, 140, 130, 140
         try:
+            sql = """
+                   SELECT FeedbackN, FeedbackM, FeedbackK, FeedbackS, Tagcode, Min, Max
+                   FROM ML.dbo.FeedbackValue WHERE Process = 'LD5' AND Batch = '{}'
+            """.format(brand)
             # server, user, password, database
             conn = pymssql.connect(server='10.100.100.114',
                                    user='sa',
@@ -340,8 +340,17 @@ class Determiner:
                     logging.info(
                         'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
                     humid_after_cut = 17
+
+                humid_before_drying = list(self.q.queue)
+                try:
+                    humid_before_drying = sum(humid_before_drying) / len(humid_before_drying)
+                except ZeroDivisionError as e:
+                    logging.info('ZeroDivisionError: {}, {}'.format(sum(humid_before_drying), len(humid_before_drying)))
+                    humid_before_drying = 17
+
                 pred = self.head_model.predict(brand=current_data[BRADN],
                                                flow=float(current_data[FLOW]),
+                                               humid_before_drying=humid_before_drying,
                                                humid_after_cut=humid_after_cut,
                                                standard_temp_2=float(current_data[STANDARD_TEMP_2]),
                                                standard_temp_1=float(current_data[STANDARD_TEMP_1]),
@@ -353,20 +362,27 @@ class Determiner:
             if self.transition_flag:
                 logging.info('Current in Transition Model.')
                 brand = current_data[BRADN]
-                input_humid = list(self.q.queue)
                 try:
-                    input_humid = sum(input_humid) / len(input_humid)
+                    humid_after_cut = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
-                    logging.info('ZeroDivisionError: {}, {}'.format(sum(input_humid), len(input_humid)))
-                    input_humid = 17
+                    logging.info(
+                        'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
+                    humid_after_cut = 17
+
+                humid_before_drying = list(self.q.queue)
+                try:
+                    humid_before_drying = sum(humid_before_drying) / len(humid_before_drying)
+                except ZeroDivisionError as e:
+                    logging.info('ZeroDivisionError: {}, {}'.format(sum(humid_before_drying), len(humid_before_drying)))
+                    humid_before_drying = 17
                 # 暂时使用Head模型，增加了下惩罚项
 
                 last_temp_1 = float(
                     self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
-                    * input_humid * 1.15 + float(current_data[STANDARD_TEMP_1]))
+                    * humid_before_drying * 1.15 + float(current_data[STANDARD_TEMP_1]))
                 last_temp_2 = float(
                     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
-                    * input_humid * 1.15 + float(current_data[STANDARD_TEMP_2]))
+                    * humid_before_drying * 1.15 + float(current_data[STANDARD_TEMP_2]))
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
