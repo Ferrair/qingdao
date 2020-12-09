@@ -114,6 +114,7 @@ class Determiner:
 
         # 过渡状态
         self.transition_flag = False
+        self.transition_counter = 0
 
         # 计算生产状态的
         self.produce_flag = False
@@ -155,7 +156,7 @@ class Determiner:
                     min_2 = int(row[5])
                     max_2 = int(row[6])
         except Exception as e:
-            logging.error(e)
+            logging.error('read_adjust_params error: {}'.format(e))
 
         self.adjust_params = {
             "n": n,
@@ -206,6 +207,7 @@ class Determiner:
             self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
 
     def init_model(self, next_range_1: int, next_range_2: int):
+        logging.info('init======================')
         self.head_model = HeadModel()
         self.tail_model = TailModel(next_range_1, next_range_2)
         self.produce_model = LRModel()
@@ -218,6 +220,7 @@ class Determiner:
 
         # 过渡状态
         self.transition_flag = False
+        self.transition_counter = 0
 
         # 计算生产状态的
         self.produce_flag = False
@@ -335,23 +338,23 @@ class Determiner:
             if self.head_flag:
                 logging.info('Current in Head Model.')
                 try:
-                    humid_after_cut = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                    humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
                     logging.info(
                         'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
-                    humid_after_cut = 17
+                    humid_after_cut_float = 17
 
-                humid_before_drying = list(self.q.queue)
                 try:
-                    humid_before_drying = sum(humid_before_drying) / len(humid_before_drying)
+                    humid_before_drying = list(self.q.queue)
+                    humid_before_drying_float = sum(humid_before_drying) / len(humid_before_drying)
                 except ZeroDivisionError as e:
-                    logging.info('ZeroDivisionError: {}, {}'.format(sum(humid_before_drying), len(humid_before_drying)))
-                    humid_before_drying = 17
+                    logging.info('ZeroDivisionError: {}, {}'.format(sum(list(self.q.queue)), len(list(self.q.queue))))
+                    humid_before_drying_float = 17
 
                 pred = self.head_model.predict(brand=current_data[BRADN],
                                                flow=float(current_data[FLOW]),
-                                               humid_before_drying=humid_before_drying,
-                                               humid_after_cut=humid_after_cut,
+                                               humid_before_drying=humid_before_drying_float,
+                                               humid_after_cut=humid_after_cut_float,
                                                standard_temp_2=float(current_data[STANDARD_TEMP_2]),
                                                standard_temp_1=float(current_data[STANDARD_TEMP_1]),
                                                last_temp_1=float(current_data[TEMP1]),
@@ -360,29 +363,34 @@ class Determiner:
                 return list(pred)
 
             if self.transition_flag:
+                self.transition_counter += 1
                 logging.info('Current in Transition Model.')
                 brand = current_data[BRADN]
                 try:
-                    humid_after_cut = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                    humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
                     logging.info(
                         'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
-                    humid_after_cut = 17
+                    humid_after_cut_float = 17
 
                 humid_before_drying = list(self.q.queue)
                 try:
-                    humid_before_drying = sum(humid_before_drying) / len(humid_before_drying)
+                    humid_before_drying_float = sum(humid_before_drying) / len(humid_before_drying)
                 except ZeroDivisionError as e:
                     logging.info('ZeroDivisionError: {}, {}'.format(sum(humid_before_drying), len(humid_before_drying)))
-                    humid_before_drying = 17
+                    humid_before_drying_float = 17
                 # 暂时使用Head模型，增加了下惩罚项
+                if self.transition_counter < 60:
+                    humid_use = humid_after_cut_float
+                else:
+                    humid_use = humid_before_drying_float
 
                 last_temp_1 = float(
-                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
-                    * humid_before_drying * 1.15 + float(current_data[STANDARD_TEMP_1]))
+                    self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand]
+                    * humid_use * 1.15 + float(current_data[STANDARD_TEMP_1]))
                 last_temp_2 = float(
-                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
-                    * humid_before_drying * 1.15 + float(current_data[STANDARD_TEMP_2]))
+                    self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand]
+                    * humid_use * 1.15 + float(current_data[STANDARD_TEMP_2]))
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
