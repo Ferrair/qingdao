@@ -82,7 +82,7 @@ def train_and_save_produce_model(X: np.array, X_test: np.array, y: np.array, y_t
     X_test_scaler = new_model.scaler.transform(X_test)
     pred = new_model.model.predict(X_test_scaler)
     mae = round(mean_absolute_error(y_test[:, :2], pred[:, :2]), 3)
-    logging.info('mae: ', mae)
+    logging.info('mae: {}'.format(mae))
 
     make_new_model_dir()
 

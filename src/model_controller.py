@@ -265,7 +265,7 @@ def gen_training_file(input_dir, csv_file):
 
 
 def train_model(train_file):
-    df = pd.read_csv(train_file)
+    df = pd.read_csv(train_file, low_memory=False)
     df = df.drop(['Unnamed: 0'], axis=1)
 
     df = df.dropna(axis=0)
@@ -511,6 +511,6 @@ if __name__ == '__main__':
     create_dir(MODEL_SAVE_DIR)
     one_hot = read_txt_to_dict(CONFIG_PATH + load_current_model('one-hot-brands'))
     environment = read_config('env')
-    logging.info('Current model: ', load_current_model('produce').split('/')[0])
-    logging.info('Current env: ', environment)
+    logging.info('Current model: {}'.format(load_current_model('produce').split('/')[0]))
+    logging.info('Current env: {}'.format(environment))
     app.run(host='0.0.0.0', port=5000)

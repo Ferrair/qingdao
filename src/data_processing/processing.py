@@ -13,9 +13,9 @@ from src.utils.util import name_list_2_plc_list, format_time
 
 feature_name_columns = ['最终烟丝含水实际值', '烘丝出口温度', '瞬时流量', '累计流量',
                         '罩压力反馈值', '罩压力实际值', '工艺气体温度反馈值', '工艺气体温度实际值',
-                        '入口烟丝水分', '回潮机水分增加',
-                        '罩压力PID控制反馈值', '工艺气速度反馈值', '工艺气速度实际值', '工艺气速度设定值', '工艺气体温度设定值',
-                        '最终烟丝含水设定值', '桶温区1阀后蒸汽压力', '桶温区2阀后蒸汽压力', '工作点脱水', '脱水速度',
+                        '入口烟丝水分', '回潮机水分增加', '罩压力PID控制反馈值', '工艺气速度反馈值',
+                        '工艺气速度实际值', '工艺气速度设定值', '工艺气体温度设定值', '最终烟丝含水设定值',
+                        '桶温区1阀后蒸汽压力', '桶温区2阀后蒸汽压力', '工作点脱水', '脱水速度',
                         '工艺蒸汽流量实际值', '工艺蒸汽流量设定值', 'SIROX阀后蒸汽压力', 'Sirox出口物料温度']
 label_column = ['桶温区1设定值', '桶温区2设定值']
 
@@ -377,8 +377,8 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: d
         delta_list.append(brand_delta)
         mapping_list.append(brand_mapping)
 
-        logging.info(brand, ':', len(brand_train_data))
-        logging.info('time:', datetime.now() - start)
+        logging.info('{} : {}'.format(brand, len(brand_train_data)))
+        logging.info('time: {}'.format(datetime.now() - start))
 
     X_produce = concatenate(train_data_list)
     y_produce = concatenate(train_label_list)
