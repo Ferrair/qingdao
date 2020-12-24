@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from datetime import datetime
@@ -38,10 +39,13 @@ def read_txt_to_dict(path: str) -> dict:
 
 def save_config(key: str, value: object):
     config = read_txt_to_dict(ROOT_PATH + '/src/config/env')
+    logging.info('key: {}, value: {}, config: {}'.format(key, value, config))
     if value:
         config[key] = value
     else:
         del config[key]
+
+    logging.info('key: {}, value: {}, config: {}'.format(key, value, config))
     save_dict_to_txt(ROOT_PATH + '/src/config/env', config)
 
 
@@ -57,7 +61,8 @@ def read_config(key: str) -> str:
 
 def read_mapping():
     mapping = {}
-    with open(ROOT_PATH + '/src/config/mapping.txt') as f:
+    # 在Windows机器上就会出错，所以这里需要指定下encoding
+    with open(ROOT_PATH + '/src/config/mapping.txt', encoding='utf-8') as f:
         lines = f.readlines()
         for line in lines:
             line = line.replace('\n', '')

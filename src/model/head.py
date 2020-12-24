@@ -47,14 +47,30 @@ class HeadModel(BasicModel):
         if self.stable_per_brand is None:
             raise Exception('No available stable_per_brand.')
 
-    def predict(self, brand: str, flow: int, humid_after_cut: int, humid_before_drying: int,
-                last_temp_1: float, last_temp_2: float,
-                standard_temp_1: float, standard_temp_2: float) -> list:
+    @staticmethod
+    def calc_work_dry(flow, after_cut_humid, input_humid, output_humid):
+        # flow 流量
+        # after_cut_humid 来料水分
+        # input_humid 烘丝入口水分
+        # output_humid 烘丝出口水分
+        # 计算脱水量
+        # @牛工给的计算脱水量的方法
+        work_dry = flow * ((100 - after_cut_humid) / (100 - input_humid)) * ((input_humid - output_humid) / (100 - output_humid))
+        logging.info('calc_work_dry {}, {}, {}, {}, = {}'.format(flow, after_cut_humid, input_humid, output_humid, work_dry))
+        return work_dry
+
+    def predict(self, brand: str, flow: int, humid_after_cut: int, humid_before_drying: int, output_humid:int,
+                last_temp_1: float, last_temp_2: float, standard_temp_1: float, standard_temp_2: float,
+                humid_sum: float, recent_humid: float = None, recent_work_dry: float = None) -> list:
         """
         predict in head stage
 
+        :param recent_humid: 这个地方是从数据库读取到的最近10批次的入口水分值
+        :param recent_work_dry: 这个地方是从数据库读取到的最近10批次的脱水量
         :param standard_temp_2: 二区标准工作点位
+        :param humid_sum 累计量
         :param standard_temp_1: 一区标准工作点位
+        :param output_humid: 出口水分
         :param flow: 流量
         :param humid_before_drying: 烘前水分
         :param humid_after_cut: 切丝后出口水分
@@ -74,22 +90,66 @@ class HeadModel(BasicModel):
         #     self.timer = 0
 
         # region 1
+        logging.info(
+            'Head info 1: {}, {}, {}, {}, {}'.format(self.stable_per_brand[brand][0],
+                                                     self.ratio[brand][0],
+                                                     humid_after_cut,
+                                                     humid_before_drying,
+                                                     standard_temp_1))
+        logging.info(
+            'Head info 2: {}, {}, {}, {}, {}'.format(self.stable_per_brand[brand][1],
+                                                     self.ratio[brand][1],
+                                                     humid_after_cut,
+                                                     humid_before_drying,
+                                                     standard_temp_2))
+
+        # self.calc_work_dry(flow=flow, after_cut_humid=humid_after_cut, input_humid=humid_sum, output_humid=output_humid)
+
         if self.timer >= self.range_1_lag:
-            if self.timer >= self.range_1_lag + 120:
-                last_temp_1 = float(
-                    self.stable_per_brand[brand][0] + self.ratio[brand] * humid_after_cut * 1.1 + standard_temp_1)
+            # if recent_humid is not None:
+            #     if self.timer >= self.range_1_lag + 120:
+            #         last_temp_1 = standard_temp_1 + 2 * (humid_after_cut - recent_humid)
+            #     else:
+            #         last_temp_1 = standard_temp_1 + 2 * (humid_after_cut - recent_humid)
+            ##################################
+            #### 使用脱水量来继续计算
+            if recent_work_dry is not None:
+                current_work_dry = self.calc_work_dry(flow=flow, after_cut_humid=humid_after_cut, input_humid=humid_sum + humid_after_cut, output_humid=output_humid)
+
+                if self.timer >= self.range_1_lag + 120:
+                    last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_before_drying * 1.1 + standard_temp_1)
+                else:
+                    last_temp_1 = standard_temp_1 + 0.12 * (current_work_dry - recent_work_dry)
+            ##################################
             else:
-                last_temp_1 = float(
-                    self.stable_per_brand[brand][0] + self.ratio[brand] * humid_before_drying * 1.1 + standard_temp_1)
+                if self.timer >= self.range_1_lag + 120:
+                    last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_before_drying * 1.1 + standard_temp_1)
+                else:
+                    last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand][0] * humid_after_cut * 1.1 + standard_temp_1)
 
         # region 2
         if self.timer >= self.range_2_lag:
-            if self.timer >= self.range_2_lag + 120:
-                last_temp_2 = float(
-                    self.stable_per_brand[brand][1] + self.ratio[brand] * humid_after_cut * 1.1 + standard_temp_2)
+            # if recent_humid is not None:
+            #     if self.timer >= self.range_2_lag + 120:
+            #         last_temp_2 = standard_temp_2 + 2 * (humid_before_drying - recent_humid)
+            #     else:
+            #         last_temp_2 = standard_temp_2 + 2 * (humid_after_cut - recent_humid)
+
+            ##################################
+            #### 使用脱水量来继续计算
+            if recent_work_dry is not None:
+                current_work_dry = self.calc_work_dry(flow=flow, after_cut_humid=humid_after_cut, input_humid=humid_sum + humid_after_cut, output_humid=output_humid)
+
+                if self.timer >= self.range_2_lag + 120:
+                    last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_before_drying * 1.1 + standard_temp_2)
+                else:
+                    last_temp_2 = standard_temp_2 + 0.12 * (current_work_dry - recent_work_dry)
+            ##################################
             else:
-                last_temp_2 = float(
-                    self.stable_per_brand[brand][1] + self.ratio[brand] * humid_before_drying * 1.1 + standard_temp_2)
+                if self.timer >= self.range_2_lag + 120:
+                    last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_before_drying * 1.1 + standard_temp_2)
+                else:
+                    last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand][1] * humid_after_cut * 1.1 + standard_temp_2)
 
         self.timer += 1
         return [last_temp_1, last_temp_2]

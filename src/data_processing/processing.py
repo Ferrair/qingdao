@@ -28,6 +28,8 @@ WORD_STATUS_PRODUCE = 32
 
 feature_plc_columns = name_list_2_plc_list(feature_name_columns)
 
+#############################
+## 模型所需的超参数
 STABLE_WINDOWS_SIZE = 10  # 稳态的时长
 SPLIT_NUM = 10  # 特征选取分割区间的数量（需要被FEATURE_RANGE整除）
 TIME_IN_ROLLER = 70  # 烟丝在一个滚筒的时间
@@ -45,7 +47,7 @@ STABLE_UNAVAILABLE = 200  # 出口水分不可用阶段
 TRANSITION_SIZE = 400  # 定义 Transition 的长度
 
 MODEL_HEAD_CRITERION = 0.25
-
+#############################
 
 def calc_feature_lgbm(item_: pd.DataFrame) -> np.array:
     """
