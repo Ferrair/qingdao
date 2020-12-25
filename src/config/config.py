@@ -11,11 +11,14 @@ FLOW = '5H.5H.LD5_CK2222_TbcLeafFlowSH'  # '瞬时流量'
 BATCH = '6032.6032.LD5_YT603_2B_YS2ROASTBATCHNO'  # '批次'
 BRADN = '6032.6032.LD5_YT603_2B_YS2ROASTBRAND'  # '牌号'
 HUMID_AFTER_CUT = '6032.6032.LD5_TM2222A_CUTOUTMOISTURE'  # '切丝后出口水分'
+HUMID_MOIST_INC = '5H.5H.LD5_KL2226_MoistInc'  # '切丝后出口水分'
+
 TEMP1 = '5H.5H.LD5_KL2226_BucketTemp1SP'  # '一区温度设定值'
 TEMP2 = '5H.5H.LD5_KL2226_BucketTemp2SP'  # '二区温度设定值'
 TEMP1_CURRENT = '5H.5H.LD5_KL2226_BucketTemp1PV'  # '一区温度实际值'
 TEMP2_CURRENT = '5H.5H.LD5_KL2226_BucketTemp2PV'  # '二区温度实际值'
 HUMID_AFTER_DRYING = '5H.5H.LD5_KL2226_TT1LastMoisPV'  # '烘丝后出口水分'
+HUMID_AFTER_DRYING_SETTING = '5H.5H.LD5_KL2226_TT1LastMoisSP'  # '烘丝后出口水分设定值'
 HUMID_BEFORE_DRYING = '5H.5H.LD5_KL2226_InputMoisture'  # '烘丝后入口水分'
 CUT_HALF_FULL = '6032.6032.LD5_2220_GP2220STATUS3'  # '5000叶丝线暂存柜半满'
 STANDARD_TEMP_1 = '5H.5H.LD5_KL2226_TT1StandardTemp1'  # 一区标准点位
@@ -35,7 +38,7 @@ HUMID_AFTER_CUT_RANGE = 180  # 选取这么多时间的切丝后出口水分平�
 FLOW_LIMIT = 2000  # 流量判断
 FLOW_MIN = 10  # 流量判断
 MIN_DATA_NUM = 2  # 最少的数据限制
-HUMID_EPSILON = 0.1  # 低于这个出口水分，几乎就为0，为了防止误差的
+HUMID_EPSILON = 4  # 低于这个出口水分
 HEAD_MAX_TIME = 300  # 头料阶段最大时间，大于这个时间就当做生产状态了
 
 # 烘干后出口水分设定值

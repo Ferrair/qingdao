@@ -1,10 +1,15 @@
 # -*- coding:UTF-8 -*-
 import logging
 import warnings
+###################################################
+# # 181的机器上需要手动添加这个，不然运行不起来
+# import sys
+# sys.path.append('C:\\Users\\ModelTraining\\Desktop\\hongsi\\qingdao')
+###################################################
 
 from src.PythonDeviceControlLib.HSControl import *
 from src.config.error_code import *
-from src.manager.model_manager import load_current_model, Determiner, train_and_save_produce_model
+from src.manager.model_manager import load_current_model, Determiner, train_and_save_model
 from src.data_processing.processing import *
 
 from flask import Flask, jsonify, request
@@ -177,7 +182,8 @@ def _predict(originals, features, time_dict):
 
         # 只有在生产阶段，才做这些操作
         if determiner.produce_flag:
-            pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
+            # pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
+            pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
             logging.info('Pred after adjust self: {}, {}'.format(pred[0], pred[1]))
             try:
                 n = int(determiner.adjust_params.get("n"))
@@ -194,19 +200,17 @@ def _predict(originals, features, time_dict):
                 logging.error('Feedback error: {}'.format(e))
 
         pred = add_random(pred)
-        ######
-        # clip
-        max_1 = int(determiner.adjust_params.get("max_1"))
-        max_2 = int(determiner.adjust_params.get("max_2"))
-        min_1 = float(determiner.adjust_params.get("min_1"))
-        min_2 = float(determiner.adjust_params.get("min_2"))
-
-        pred[0] = np.clip(pred[0], min_1, max_1)
-        pred[1] = np.clip(pred[1], min_2, max_2)
-
-        pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
-        ######
-
+        if not determiner.tail_flag:
+            ######
+            # clip
+            max_1 = int(determiner.adjust_params.get("max_1"))
+            max_2 = int(determiner.adjust_params.get("max_2"))
+            min_1 = float(determiner.adjust_params.get("min_1"))
+            min_2 = float(determiner.adjust_params.get("min_2"))
+            logging.info('clip: {}, {}, {}, {}'.format(min_1, max_1, min_2, max_2))
+            pred[0] = np.clip(pred[0], min_1, max_1)
+            pred[1] = np.clip(pred[1], min_2, max_2)
+            ######
         logging.info('Pred after all: {}, {} ---- REAL: {}, {}'.format(pred[0], pred[1],
                                                                        current_data[TEMP1],
                                                                        current_data[TEMP2]))
@@ -280,15 +284,16 @@ def train_model(train_file):
         else:
             new_columns.append(column)
     df.columns = new_columns
-    # 按牌号分割
+    # 按牌号和批次进行分割
     logging.info("Splitting data by brand ...")
     data_per_brand = split_data_by_brand(df)
-    # 构造训练数据
+
+    # 构造训练数据，里面计算5个衍生变量 +
     logging.info("Generating training data ...")
     X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
         generate_all_training_data(data_per_brand, criterion, one_hot)
     # 训练并保存模型
-    train_and_save_produce_model(X_train, X_test, y_train, y_test)
+    train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()))
 
 
 @app.route('/api/train', methods=["POST"])
@@ -485,7 +490,7 @@ def change_env_api():
     global environment
     environment = env
 
-    save_config('env', environment)
+    # save_config('env', environment)
     return jsonify('OK')
 
 
@@ -510,7 +515,7 @@ def load_temp_criterion_api():
 if __name__ == '__main__':
     create_dir(MODEL_SAVE_DIR)
     one_hot = read_txt_to_dict(CONFIG_PATH + load_current_model('one-hot-brands'))
-    environment = read_config('env')
+    environment = Environment.TEST
     logging.info('Current model: {}'.format(load_current_model('produce').split('/')[0]))
     logging.info('Current env: {}'.format(environment))
     app.run(host='0.0.0.0', port=5000)
