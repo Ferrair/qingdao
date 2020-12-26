@@ -107,7 +107,6 @@ def to_one_hot(brand_name_list_):
     return rslt
 
 
-
 class Determiner:
 
     def __init__(self) -> None:
@@ -150,6 +149,8 @@ class Determiner:
 
         self.recent_work_dry = None
 
+        self.standard_temp = {}
+
     @staticmethod
     def read_recent_info(brand, kpi_name):
         try:
@@ -173,6 +174,36 @@ class Determiner:
             return float(np.mean(recent_humid))
         except Exception as e:
             logging.error('read_recent_info error {}'.format(e))
+            return None
+
+    @staticmethod
+    def read_standard_temp(brand):
+        try:
+            sql = """
+                    SELECT 
+                    Zone1_Pre_heating, Zone2_Pre_heating, Zone1_Work_heating, Zone2_Work_heating  
+                    FROM ML.dbo.MODEL_ZS.HS_PARA
+                    WHERE Brand = '{brand}' and
+                """.format(brand=brand)
+
+            conn = pymssql.connect(server=FEEDBACK_DB_HOST,
+                                   user=FEEDBACK_DB_USER,
+                                   password=FEEDBACK_DB_PWD,
+                                   database='ML')
+            cursor = conn.cursor()
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            for row in rows:
+                standard_temp = {
+                    's1_pre': row[0],
+                    's2_pre': row[1],
+                    's1': row[2],
+                    's2': row[3]
+                }
+            logging.info('read_standard_temp info {}'.format(standard_temp))
+            return standard_temp
+        except Exception as e:
+            logging.error('read_standard_temp error {}'.format(e))
             return None
 
     def read_adjust_params(self, brand):
@@ -339,6 +370,7 @@ class Determiner:
 
                 self.recent_batch_humid = self.read_recent_info(brand=current_brand, kpi_name=KPI_HUMID)
                 self.recent_work_dry = self.read_recent_info(brand=current_brand, kpi_name=KPI_WORK_DRY)
+                self.standard_temp = self.read_standard_temp(brand=current_brand)
 
             # 当前点的流量增长到了 2000 --> HeadModel
             if float(last_data[FLOW]) < FLOW_LIMIT < float(current_data[FLOW]):
@@ -415,15 +447,17 @@ class Determiner:
                 logging.info('Start Head')
                 try:
                     pred = self.head_model.predict(brand=current_data[BRADN],
+                                                   flow_set=float(current_data[FLOW_SET]),
                                                    flow=float(current_data[FLOW]),
                                                    recent_humid=self.recent_batch_humid,
                                                    output_humid=current_data[HUMID_AFTER_DRYING_SETTING],
                                                    recent_work_dry=self.recent_work_dry,
                                                    humid_sum=current_data[HUMID_MOIST_INC],
-                                                   humid_before_drying=humid_before_drying_float,
-                                                   humid_after_cut=humid_after_cut_float,
-                                                   standard_temp_2=float(current_data[STANDARD_TEMP_2]),
-                                                   standard_temp_1=float(current_data[STANDARD_TEMP_1]),
+                                                   humid_before_drying_sum=humid_before_drying_float,
+                                                   humid_before_drying_cur=current_data[HUMID_BEFORE_DRYING],
+                                                   humid_after_cut_sum=humid_after_cut_float,
+                                                   standard_temp_2=float(self.standard_temp.get('s2')),
+                                                   standard_temp_1=float(self.standard_temp.get('s1')),
                                                    last_temp_1=float(current_data[TEMP1]),
                                                    last_temp_2=float(current_data[TEMP2]))
                 except Exception as e:
@@ -438,10 +472,10 @@ class Determiner:
                 logging.info('Current in Transition Model.')
                 brand = current_data[BRADN]
                 # try:
-                #     humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                #     humid_after_cut_float = sum(self.humid_after_cut_sum) / len(self.humid_after_cut_sum)
                 # except ZeroDivisionError as e:
                 #     logging.info(
-                #         'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut), len(self.humid_after_cut)))
+                #         'ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut_sum), len(self.humid_after_cut_sum)))
                 #     humid_after_cut_float = 17
 
                 humid_before_drying = list(self.q.queue)
@@ -458,18 +492,18 @@ class Determiner:
                     'Transition info 1: {}, {}, {}, {}'.format(self.head_model.stable_per_brand[brand][0],
                                                                self.head_model.ratio[brand][0],
                                                                humid_use,
-                                                               current_data[STANDARD_TEMP_1]))
+                                                               self.standard_temp.get('s1')))
                 logging.info(
                     'Transition info 2: {}, {}, {}, {}'.format(self.head_model.stable_per_brand[brand][1],
                                                                self.head_model.ratio[brand][1],
                                                                humid_use,
-                                                               current_data[STANDARD_TEMP_2]))
+                                                               self.standard_temp.get('s2')))
                 last_temp_1 = float(
                     self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
-                    * humid_use * 1.15 + float(current_data[STANDARD_TEMP_1]))
+                    * humid_use * 1.15 + float(current_data[self.standard_temp.get('s1')]))
                 last_temp_2 = float(
                     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
-                    * humid_use * 1.15 + float(current_data[STANDARD_TEMP_2]))
+                    * humid_use * 1.15 + float(current_data[self.standard_temp.get('s2')]))
 
                 logging.info('Transition end')
                 return [last_temp_1, last_temp_2]
