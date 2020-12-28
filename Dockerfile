@@ -11,7 +11,7 @@ ADD requirements.txt /qingdao/requirements.txt
 
 WORKDIR /qingdao
 
-RUN pip install --default-timeout=100 -r requirements.txt
+RUN pip install --default-timeout=120 -r requirements.txt
 RUN sed -i "s?^ROOT_PATH.*?ROOT_PATH = '/qingdao'?g" /qingdao/src/config/config.py
 
 CMD export PYTHONPATH=:/qingdao && python3 /qingdao/src/model_controller.py  2>&1 | tee model_service.log
