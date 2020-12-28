@@ -111,7 +111,8 @@ def concatenate(data_: list) -> np.array:
 def clip_last(pred: np.array, last_temp_1: float, last_temp_2: float) -> np.array:
     if len(pred) is not 2:
         raise Exception('Predicted value MUST have 2 value')
-    bound = 0.3
+    bound = 0.5
+    #bound = 0.3
     pred[0] = np.clip(pred[0], last_temp_1 - bound, last_temp_1 + bound)
     pred[1] = np.clip(pred[1], last_temp_2 - bound, last_temp_2 + bound)
     return pred
@@ -149,7 +150,8 @@ def adjust(pred: list, original_humid: list, setting: float) -> list:
     if np.all(original_humid == 0):
         return pred
     original_humid_diff = np.array([i - setting for i in original_humid])
-    ratio = 1.2
+    ratio = 0
+    #ratio = 1.2
     if np.all(original_humid_diff > 0.05):
         pred[0] += np.sum(original_humid_diff) * ratio
         pred[1] += np.sum(original_humid_diff) * ratio

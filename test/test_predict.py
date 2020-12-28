@@ -44,7 +44,7 @@ def _predict(originals_, features_, pred_start_time=0, sample_time=0):
         logging.info('Pred before adjust: {}, {}'.format(pred[0], pred[1]))
         # 只有在生产阶段，才做这些操作
         if determiner.produce_flag:
-            pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals_], criterion[brand])
+            #pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals_], criterion[brand])
             pred = clip(pred, temp1_criterion[brand], temp2_criterion[brand])
         pred = clip_last(pred, current_data[TEMP1], current_data[TEMP2])
         pred = add_random(pred)
