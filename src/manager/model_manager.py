@@ -183,7 +183,7 @@ class Determiner:
                     SELECT 
                     Zone1_Pre_heating, Zone2_Pre_heating, Zone1_Work_heating, Zone2_Work_heating  
                     FROM ML.dbo.MODEL_ZS.HS_PARA
-                    WHERE Brand = '{brand}' and
+                    WHERE Brand = '{brand}'
                 """.format(brand=brand)
 
             conn = pymssql.connect(server=FEEDBACK_DB_HOST,
@@ -193,6 +193,7 @@ class Determiner:
             cursor = conn.cursor()
             cursor.execute(sql)
             rows = cursor.fetchall()
+            standard_temp = {}
             for row in rows:
                 standard_temp = {
                     's1_pre': row[0],
