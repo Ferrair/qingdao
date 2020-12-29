@@ -176,7 +176,7 @@ class HeadModel(BasicModel):
 
                     last_temp_2 = standard_temp_2 + 0.12 * (current_work_dry - recent_work_dry)
                 else:
-                    current_work_dry = self.calc_work_dry(flow=flow_set, input_flow_humid=humid_before_drying_cur,
+                    current_work_dry = self.calc_work_dry(flow=flow_set, input_flow_humid=humid_after_cut_sum,
                                                           input_humid=humid_sum + humid_after_cut_sum,
                                                           output_humid=output_humid)
                     logging.info(
