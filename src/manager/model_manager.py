@@ -182,7 +182,7 @@ class Determiner:
             sql = """
                     SELECT 
                     Zone1_Pre_heating, Zone2_Pre_heating, Zone1_Work_heating, Zone2_Work_heating  
-                    FROM ML.dbo.MODEL_ZS.HS_PARA
+                    FROM ML.dbo.MODEL_ZS_HS_PARA
                     WHERE Brand = '{brand}'
                 """.format(brand=brand)
 
