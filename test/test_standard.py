@@ -12,10 +12,19 @@ def read_standard(brand, default_1, default_2):
             "BrandCode": brand,
             "WorkstageCode": "LD5",
             "TagReads": [
-                "5H.5H.LD5_KL2226_TT1StandardTemp1",
-                "5H.5H.LD5_KL2226_TT1StandardTemp2"
+                "5H.5H.LD5_KL2226_BucketTemp1PV",
+                "5H.5H.LD5_KL2226_BucketTemp2PV"
             ]
         }
+
+        # body = {
+        #     "BrandCode": brand,
+        #     "WorkstageCode": "LD5",
+        #     "TagReads": [
+        #         "5H.5H.LD5_KL2226_TT1StandardTemp1",
+        #         "5H.5H.LD5_KL2226_TT1StandardTemp2"
+        #     ]
+        # }
         res = requests.post(CONFIG_URL, json=body)
         if (res.status_code / 100) == 2:
             json_obj = json.loads(res.text)

@@ -4,7 +4,11 @@ TRAINING_DATA_DIR = ROOT_PATH + '/training_data/'
 CONFIG_PATH = ROOT_PATH + '/src/config/'
 CURRENT_MODE_NAME = None
 CONTROL_URL = "http://localhost:64035/api/PLCAPI"
-CONFIG_URL = "http://10.100.100.115:8077/api/ParmStandard/GetTable"
+#Test Env
+#CONFIG_URL = "http://10.100.100.115:8077/api/ParmStandard/GetTable"
+
+#Prod Env
+CONFIG_URL = "http://10.100.100.146:8888/api/ParmStandard/GetTable"
 
 FLOW_TOTAL = '5H.5H.LD5_CK2222_TbcLefFlowTotal'  # 累计流量
 FLOW = '5H.5H.LD5_CK2222_TbcLeafFlowSH'  # '瞬时流量'
