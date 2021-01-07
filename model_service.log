@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\model_controller.py", line 9, in <module>
+    from src.manager.model_manager import load_current_model, Determiner, train_and_save_produce_model
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\manager\model_manager.py", line 12, in <module>
+    from src.model.head import HeadModel
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\model\head.py", line 7, in <module>
+    from src.utils.util import save_dict_to_txt, read_txt_to_dict
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\utils\util.py", line 77, in <module>
+    PLC_TO_NAME = read_mapping()
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\utils\util.py", line 65, in read_mapping
+    lines = f.readlines()
+UnicodeDecodeError: 'gbk' codec can't decode byte 0x8c in position 136: illegal multibyte sequence
+Traceback (most recent call last):
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\model_controller.py", line 9, in <module>
+    from src.manager.model_manager import load_current_model, Determiner, train_and_save_produce_model
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\manager\model_manager.py", line 12, in <module>
+    from src.model.head import HeadModel
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\model\head.py", line 7, in <module>
+    from src.utils.util import save_dict_to_txt, read_txt_to_dict
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\utils\util.py", line 77, in <module>
+    PLC_TO_NAME = read_mapping()
+  File "C:\Users\ModelTraining\Desktop\hongsi\qingdao\src\utils\util.py", line 65, in read_mapping
+    lines = f.readlines()
+UnicodeDecodeError: 'gbk' codec can't decode byte 0x8c in position 136: illegal multibyte sequence
