@@ -183,7 +183,7 @@ def _predict(originals, features, time_dict):
         # 只有在生产阶段，才做这些操作
         if determiner.produce_flag:
             # pred = adjust(pred, [x[HUMID_AFTER_DRYING] for x in originals], criterion[brand])
-            pred = clip_last(pred, float(current_data[TEMP1]), float(current_data[TEMP2]))
+            pred = clip_last(pred, float(np.mean(df[TEMP1].values[-5:])), float(np.mean(df[TEMP1].values[-5:])))
             logging.info('Pred after adjust self: {}, {}'.format(pred[0], pred[1]))
             try:
                 n = int(determiner.adjust_params.get("n"))
