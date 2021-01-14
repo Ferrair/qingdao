@@ -339,7 +339,7 @@ class Determiner:
             # 计算切后水分，只选取 5000 叶丝线暂存柜半满后的三分钟的数据
             # 改为：切后水分仪计算到时间范围：以入口水分大于17后的60S开始计时，持续到半满后的2分钟
             # 5H.5H.LD5_KL2226_InputMoisture
-            # TODO 优化为queue的形式
+
             if float(current_data[HUMID_AFTER_CUT]) > 17.5 and self.cut_half_full_counter < 180:
                 self.humid_after_cut.append(float(current_data[HUMID_AFTER_CUT]))
             if current_data[CUT_HALF_FULL]:
@@ -430,7 +430,12 @@ class Determiner:
             if self.head_flag:
                 logging.info('Current in Head Model.')
                 try:
-                    humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                    #根据牛工建议选用前1/3最大的水分humid_after_cut进行计算平均值，去除调较小的水分:降序排列
+                    self.humid_after_cut.sort(reverse=True)
+                    humid_after_cut_clip = self.humid_after_cut[:int(len(self.humid_after_cut)/3)]
+                    humid_after_cut_float = sum(humid_after_cut_clip) / len(humid_after_cut_clip)
+
+                    #humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
                     logging.info(
                         'humid_after_cut_float ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut),
