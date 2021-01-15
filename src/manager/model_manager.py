@@ -506,10 +506,10 @@ class Determiner:
                                                                self.standard_temp.get('s2')))
                 last_temp_1 = float(
                     self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
-                    * humid_use * 1.15 + float(self.standard_temp.get('s1')))
+                    * humid_use * 1.1 + float(self.standard_temp.get('s1')))
                 last_temp_2 = float(
                     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
-                    * humid_use * 1.15 + float(self.standard_temp.get('s2')))
+                    * humid_use * 1.1 + float(self.standard_temp.get('s2')))
 
                 logging.info('Transition end')
                 return [last_temp_1, last_temp_2]
