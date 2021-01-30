@@ -524,9 +524,10 @@ class Determiner:
                     * humid_use * 1.1 + float(self.standard_temp.get('s2')))
 
                 try:
-                    logging.info('features shape: {}'.format(transition_feature.shape))
+                    logging.info('transition features shape: {}'.format(transition_feature.shape))
                     pred = self.transition_model.predict(transition_feature)
                     pred = list(pred.ravel())
+                    logging.info('transition rslt: {}'.format(pred))
                     return [last_temp_1 * 0.7 + pred[0] * 0.3, last_temp_2 * 0.7 + pred[1] * 0.3]
                 except Exception as e:
                     logging.exception(e)
