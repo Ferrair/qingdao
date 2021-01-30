@@ -112,33 +112,37 @@ def add_random(pred):
     return [pred[0] + (random.random() - 0.5) / 10, pred[1] + (random.random() - 0.5) / 10]
 
 
-def check_features_correct(features, originals):
+def calc_feature(originals):
     try:
-        if len(originals) == FEATURE_RANGE:
-            columns = list(originals[0].keys())
-            data = [list(item.values()) for item in originals]
-            computed_features = calc_feature_lr(pd.DataFrame(data, columns=columns), SPLIT_NUM)
-            # if not np.array_equal(features, computed_features):
-            #    logging.error('Flink Features process might not correct.')
-            #    return False, computed_features
-            return False, computed_features
+        columns = list(originals[0].keys())
+        data = [list(item.values()) for item in originals]
+        produce_feature = calc_feature_lr(
+            pd.DataFrame(data, columns=columns),
+            SPLIT_NUM
+        )
+
+        transition_feature = calc_feature_lr(
+            pd.DataFrame(data, columns=columns),
+            TRANSITION_SPLIT_NUM,
+            start=len(data) - TRANSITION_FEATURE_RANGE,
+            end=len(data)
+        )
+        return produce_feature, transition_feature
     except Exception as e:
-        logging.error(e)
-        return False, features
-    return True, features
+        logging.exception(e)
 
 
-def _predict(originals, features, time_dict):
+def _predict(originals, time_dict):
     # pred_start_time = time_dict.get('pred_start_time', 0)
     # kafka_time = time_dict.get('kafka_time', 0)
     sample_time = time_dict.get('sample_time', 0)
 
     # Check Feature
     # 判断Flink计算的特征是否正确
-    is_correct, features = check_features_correct(features, originals)
+    produce_features, transition_feature = calc_feature(originals)
 
     if len(originals) == 0:
-        logging.error('len(originals) == 0')
+        logging.exception('len(originals) == 0')
         return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
 
     current_data = originals[len(originals) - 1]
@@ -148,7 +152,7 @@ def _predict(originals, features, time_dict):
     # # 检查顺序
     # global previous_time_dict
     # if sample_time < previous_time_dict.get(brand, 0):
-    #     logging.error('sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
+    #     logging.exception('sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
     #     return wrap_failure(PARAMETERS_ERROR,
     #                         'sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
     # previous_time_dict[brand] = sample_time
@@ -166,16 +170,22 @@ def _predict(originals, features, time_dict):
     #         len(feature_name_columns) * 5 * SPLIT_NUM, len(features)))
 
     # check nan in features
-    if sum(np.isnan(features)) > 0:
+    if sum(np.isnan(produce_features)) > 0:
         return wrap_failure(PARAMETERS_ERROR, 'features contains nan')
 
-    features = np.concatenate([features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
+    produce_features = np.concatenate([produce_features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
+    transition_feature = np.concatenate([transition_feature, get_auxiliary(), [criterion[brand]], one_hot[brand]])
+
     df = gen_dataframe(originals)
 
-    logging.info('Start pred with len(features) = {}, len(originals) = {}'.format(len(features), len(originals)))
+    logging.info('Start pred with len(p_features) = {}, len(t_features) = {}, len(originals) = {}'.format(
+        len(produce_features),
+        len(transition_feature),
+        len(originals))
+    )
 
     try:
-        pred = determiner.dispatch(df=df, features=features)
+        pred = determiner.dispatch(df=df, produce_features=produce_features, transition_feature=transition_feature)
         determiner.read_adjust_params(brand)
         logging.info('counter: {} -- Pred before adjust: {}, {}, HUMID: {}'
                      .format(determiner.counter, pred[0], pred[1], current_data[HUMID_AFTER_DRYING]))
@@ -197,7 +207,7 @@ def _predict(originals, features, time_dict):
                     pred[1] += float(x * k * s)
                     logging.info('Pred after feedback {}, {}'.format(pred[0], pred[1]))
             except Exception as e:
-                logging.error('Feedback error: {}'.format(e))
+                logging.exception('Feedback error: {}'.format(e))
 
         pred = add_random(pred)
         if not determiner.tail_flag:
@@ -216,7 +226,7 @@ def _predict(originals, features, time_dict):
                                                                        current_data[TEMP2]))
 
     except Exception as e:
-        logging.error(e)
+        logging.exception(e)
         # TODO
         # 模型报错，需要发送通知
         return wrap_failure(MODEL_ERROR, 'Predict failure: {}'.format(e))
@@ -310,7 +320,7 @@ def train_api():
         return wrap_success('OK')
 
     except Exception as e:
-        logging.error(e)
+        logging.exception(e)
         return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
 
 
@@ -320,7 +330,7 @@ def update_model():
         determiner.update_model()
         return wrap_success('Current model: {}'.format(load_current_model('produce').split('/')[0]))
     except Exception as e:
-        logging.error(e)
+        logging.exception(e)
         return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
 
 
@@ -331,16 +341,16 @@ def predict_api():
         pred_start_time = int(time.time() * 1000)
         sample_time = data.get('time', 0)
         kafka_time = data.get('kafka_time', 0)
-        features = data.get('features', [])
         originals = data.get('originals', [])
         originals = format_originals(originals)
-        return _predict(originals, features, {
-            'pred_start_time': pred_start_time,
-            'sample_time': sample_time,
-            'kafka_time': kafka_time,
-        })
+        return _predict(originals,
+                        {
+                            'pred_start_time': pred_start_time,
+                            'sample_time': sample_time,
+                            'kafka_time': kafka_time,
+                        })
     except Exception as e:
-        logging.error(e)
+        logging.exception(e)
         return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
 
 
@@ -420,7 +430,7 @@ def manual_set_api():
         T1 = data['T1']
         T2 = data['T2']
     except Exception as e:
-        logging.error('Please set T1 and T2')
+        logging.exception('Please set T1 and T2')
         return jsonify('Please set T1 and T2')
 
     global failure

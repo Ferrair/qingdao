@@ -63,7 +63,7 @@ def humid_stable(original_humid: list, setting: float) -> bool:
 
         return True
     except Exception as e:
-        logging.error('humid_stable error: {}'.format(e))
+        logging.exception('humid_stable error: {}'.format(e))
         return False
 
 
@@ -173,7 +173,7 @@ class Determiner:
             logging.info('read_recent_info info {}'.format(float(np.mean(recent_humid))))
             return float(np.mean(recent_humid))
         except Exception as e:
-            logging.error('read_recent_info error {}'.format(e))
+            logging.exception('read_recent_info error {}'.format(e))
             return None
 
     @staticmethod
@@ -204,7 +204,7 @@ class Determiner:
             logging.info('read_standard_temp info {}'.format(standard_temp))
             return standard_temp
         except Exception as e:
-            logging.error('read_standard_temp error {}'.format(e))
+            logging.exception('read_standard_temp error {}'.format(e))
             return None
 
     def read_adjust_params(self, brand):
@@ -234,7 +234,7 @@ class Determiner:
                     min_2 = int(row[5])
                     max_2 = int(row[6])
         except Exception as e:
-            logging.error('read_adjust_params error: {}'.format(e))
+            logging.exception('read_adjust_params error: {}'.format(e))
 
         self.adjust_params = {
             "n": n,
@@ -283,15 +283,19 @@ class Determiner:
     def update_model(self):
         if self.produce_model is not None:
             self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
+        if self.transition_model is not None:
+            self.transition_model.load(MODEL_SAVE_DIR + load_current_model('transition'))
 
     def init_model(self, next_range_1: int, next_range_2: int):
         logging.info('init Model')
         self.head_model = HeadModel()
         self.tail_model = TailModel(next_range_1, next_range_2)
+        self.transition_model = LRModel()
         self.produce_model = LRModel()
 
         self.head_model.load(CONFIG_PATH + load_current_model('head'))
         self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
+        self.transition_model.load(MODEL_SAVE_DIR + load_current_model('transition'))
 
         # 计算头料的
         self.head_flag = False
@@ -313,10 +317,11 @@ class Determiner:
 
         self.counter = 0
 
-    def dispatch(self, df: pd.DataFrame, features: np.array) -> list:
+    def dispatch(self, df: pd.DataFrame, produce_features, transition_feature: np.array) -> list:
         """
         :param df: 一个Windows长度的数据，数组最后一个点的数据为当前时刻的数据
-        :param features: 特征：只有produce才会使用
+        :param produce_features: 特征：只有produce才会使用
+        :param transition_feature: 特征：只有transition才会使用
         非常重要的一个的方法，根据数据来判断使用那个模型，并进行预测，然后输出结果
         :return:
         """
@@ -360,7 +365,7 @@ class Determiner:
                     logging.info('Get standard success: {}'.format(standard_obj))
                     self.init_model(standard_obj.get('standard_1'), standard_obj.get('standard_2'))
                 else:
-                    logging.error('Get standard error: {}'.format(err))
+                    logging.exception('Get standard error: {}'.format(err))
                     self.init_model(DEFAULT_STANDARD_1, DEFAULT_STANDARD_2)
 
                 # 在每个批次开始的时候读取反馈控制
@@ -430,12 +435,12 @@ class Determiner:
             if self.head_flag:
                 logging.info('Current in Head Model.')
                 try:
-                    #根据牛工建议选用前1/3最大的水分humid_after_cut进行计算平均值，去除调较小的水分:降序排列
+                    # 根据牛工建议选用前1/3最大的水分humid_after_cut进行计算平均值，去除调较小的水分:降序排列
                     self.humid_after_cut.sort(reverse=True)
-                    humid_after_cut_clip = self.humid_after_cut[:int(len(self.humid_after_cut)/3)]
+                    humid_after_cut_clip = self.humid_after_cut[:int(len(self.humid_after_cut) / 3)]
                     humid_after_cut_float = sum(humid_after_cut_clip) / len(humid_after_cut_clip)
 
-                    #humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                    # humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
                     logging.info(
                         'humid_after_cut_float ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut),
@@ -468,7 +473,7 @@ class Determiner:
                                                    last_temp_2=float(current_data[TEMP2]))
                 except Exception as e:
                     pred = [float(current_data[TEMP1]), float(current_data[TEMP2])]
-                    logging.error('head fail: {}'.format(e))
+                    logging.exception('head fail: {}'.format(e))
 
                 logging.info('Head timer: {}'.format(self.head_model.timer))
                 return list(pred)
@@ -511,14 +516,21 @@ class Determiner:
                     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
                     * humid_use * 1.1 + float(self.standard_temp.get('s2')))
 
-                logging.info('Transition end')
+                try:
+                    logging.info('features shape: {}'.format(transition_feature.shape))
+                    pred = self.transition_model.predict(transition_feature)
+                    pred = list(pred.ravel())
+                    return [last_temp_1 * 0.7 + pred[0] * 0.3, last_temp_2 * 0.7 + pred[1] * 0.3]
+                except Exception as e:
+                    logging.exception(e)
+
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
                 logging.info('Current in Produce Model.')
-                logging.info('features shape: {}'.format(features.shape))
+                logging.info('features shape: {}'.format(produce_features.shape))
                 self.counter += 1
-                pred = self.produce_model.predict(features)
+                pred = self.produce_model.predict(produce_features)
                 return list(pred.ravel())
 
             if self.tail_flag:
@@ -532,7 +544,7 @@ class Determiner:
                 logging.info('Tail timer: {}, is_finish: {}'.format(self.tail_model.timer, finish))
                 return list(pred)
         except Exception as e:
-            logging.error(e)
+            logging.exception(e)
             # save_config('current_batch', 'error')
             self.last_batch = None
             return [float(current_data[TEMP1]), float(current_data[TEMP2])]

@@ -59,15 +59,20 @@ def calc_feature_lgbm(item_: pd.DataFrame) -> np.array:
     return item_[feature_plc_columns].values.ravel()
 
 
-def calc_feature_lr(item_: pd.DataFrame, split_num: int) -> np.array:
+def calc_feature_lr(item_: pd.DataFrame, split_num: int, start: int = None, end: int = None) -> np.array:
     """
     测试阶段用于计算特征的
     calc feature for each sample data
     :param item_: sample data
+    :param start
+    :param end
     :param split_num: how many splits after splitting
     :return: feature array
     """
-    feature_slice = item_[feature_plc_columns].values
+    if start and end:
+        feature_slice = item_[feature_plc_columns].iloc[start: end].values
+    else:
+        feature_slice = item_[feature_plc_columns].values
 
     # shape = (SPLIT_NUM, FEATURE_RANGE / SPLIT_NUM, FEATURE_NUM)
     feature_slice = np.array(np.vsplit(feature_slice, split_num))
