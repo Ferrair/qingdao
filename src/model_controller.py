@@ -9,7 +9,7 @@ import warnings
 
 from src.PythonDeviceControlLib.HSControl import *
 from src.config.error_code import *
-from src.manager.model_manager import load_current_model, Determiner, train_and_save_model
+from src.manager.model_manager import load_current_model, Determiner, train_and_save_model, make_new_model_dir
 from src.data_processing.processing import *
 
 from flask import Flask, jsonify, request
@@ -300,10 +300,20 @@ def train_model(train_file):
 
     # 构造训练数据，里面计算5个衍生变量 +
     logging.info("Generating training data ...")
+
+    current_time = get_current_time()
+
+    make_new_model_dir(current_time)
+
     X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
-        generate_all_training_data(data_per_brand, criterion, one_hot)
+        generate_all_training_data(data_per_brand, criterion, one_hot, 'produce')
     # 训练并保存模型
-    train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()))
+    train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()), current_time, 'produce')
+
+    X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
+        generate_all_training_data(data_per_brand, criterion, one_hot, 'transition')
+    # 训练并保存模型
+    train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()), current_time, 'transition')
 
 
 @app.route('/api/train', methods=["POST"])

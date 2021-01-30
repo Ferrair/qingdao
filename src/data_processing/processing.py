@@ -1,3 +1,4 @@
+import copy
 from typing import Tuple
 
 import pandas as pd
@@ -24,6 +25,7 @@ BATCH = '批次号'
 HUMIDITY = '最终烟丝含水实际值'
 TIME = 'timestamp'
 WORD_STATUS = '生产模式1'
+WORD_STATUS_TRANSITION = 16
 WORD_STATUS_PRODUCE = 32
 
 feature_plc_columns = name_list_2_plc_list(feature_name_columns)
@@ -47,6 +49,8 @@ STABLE_UNAVAILABLE = 200  # 出口水分不可用阶段
 TRANSITION_SIZE = 400  # 定义 Transition 的长度
 
 MODEL_HEAD_CRITERION = 0.25
+
+
 #############################
 
 def calc_feature_lgbm(item_: pd.DataFrame) -> np.array:
@@ -349,13 +353,110 @@ def generate_brand_produce_training_data(item_brand, brand_index, setting, one_h
     return brand_train_data, brand_train_label, brand_delta, brand_mapping
 
 
-def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: dict) -> Tuple[
+def generate_brand_transition_training_data(item_brand, brand_index: int, setting: float, one_hot_brand: np.array) \
+        -> Tuple[np.array, np.array, np.array, np.array]:
+    """
+    generate training data and label for one brand in 'transition' stage
+    this method is time consuming
+    :param item_brand: the brand data to generate
+    :param brand_index: brand index
+    :param setting: the setting value
+    :param one_hot_brand: brand one hot encode
+    :return:
+        brand_train_data: all training data for this brand, shape=(N, M),
+            which N denotes the number of training data, M denotes the number of feature
+        brand_train_label: all training label for this brand, shape=(N, 2)
+        brand_delta: delta info
+        brand_mapping: mapping info
+    """
+    brand_train_data = []
+    brand_train_label = []
+    brand_delta = []
+    brand_mapping = []
+
+    for batch_index, item_batch in enumerate(item_brand):
+        logging.info("|----Generating training data for batches, progress: {}"
+                     .format(str(batch_index + 1) + "/" + str(len(item_brand))))
+        item_batch = item_batch[item_batch[WORD_STATUS] == WORD_STATUS_TRANSITION]
+        item_batch = item_batch.reset_index(drop=True)
+        length = len(item_batch)
+        humidity = item_batch[HUMIDITY].values
+
+        stable_index = np.abs(humidity - setting) < MODEL_TRANSITION_CRITERION
+        # No stable area in this batch
+        if np.sum(stable_index) == 0 or len(stable_index) < STABLE_WINDOWS_SIZE:
+            continue
+        stable_index = np.sum(rolling_window(stable_index, STABLE_WINDOWS_SIZE), axis=1)
+        stable_index = np.where(stable_index == STABLE_WINDOWS_SIZE)[0]
+
+        range_start = TRANSITION_FEATURE_RANGE
+        range_end = length - STABLE_WINDOWS_SIZE
+
+        for stable_start in stable_index:
+            if stable_start < range_start or stable_start >= range_end:
+                continue
+            adjust_end = stable_start - REACTION_LAG - SETTING_LAG
+            adjust_start = adjust_end - LABEL_RANGE
+
+            # store feature
+            auxiliary_ = item_batch[HUMIDITY].values.ravel()[
+                         adjust_end: stable_start + STABLE_WINDOWS_SIZE: FURTHER_STEP]
+            auxiliary_ = auxiliary_ - setting
+
+            brand_train_data.append(
+                np.concatenate([
+                    calc_feature(
+                        item_batch,
+                        adjust_start,
+                        TRANSITION_FEATURE_RANGE,
+                        TRANSITION_SPLIT_NUM
+                    ), auxiliary_, [setting], one_hot_brand
+                ])
+            )
+
+            # store label
+            brand_train_label.append(
+                calc_label(
+                    item_batch,
+                    adjust_start,
+                    adjust_end
+                )
+            )
+
+            # store mapping info
+            brand_mapping.append([
+                brand_index,
+                batch_index,
+                adjust_start,
+                adjust_end,
+                stable_start
+            ])
+
+            # store delta value
+            brand_delta.append(
+                calc_delta(
+                    item_batch,
+                    adjust_start,
+                    adjust_end,
+                )
+            )
+
+    brand_train_data = np.array(brand_train_data)
+    brand_train_label = np.array(brand_train_label)
+    brand_mapping = np.array(brand_mapping)
+    brand_delta = np.array(brand_delta)
+
+    return brand_train_data, brand_train_label, brand_delta, brand_mapping
+
+
+def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: dict, stage='produce') -> Tuple[
     np.array, np.array, np.array, np.array, np.array, np.array, np.array, np.array]:
     """
     generate training data and label for all brand
     :param data_per_brand: all brand data
     :param criterion: criterion for each brand
     :param one_hot: one hot encode for each brand
+    :param stage:
     :return:
         train_data: all training data, shape=(N, M),
             which N denotes the number of training data, M denotes the number of feature
@@ -372,13 +473,23 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: d
         logging.info("Generating training data for brands, current: {}, progress: {}"
                      .format(brand, str(brand_index + 1) + "/" + str(len(data_per_brand))))
         start = datetime.now()
+        if stage == 'produce':
+            brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_produce_training_data(
+                copy.deepcopy(data_per_brand[brand]),
+                brand_index,
+                criterion[brand],
+                np.array(one_hot[brand])
+            )
+        elif stage == 'transition':
+            brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_transition_training_data(
+                copy.deepcopy(data_per_brand[brand]),
+                brand_index,
+                criterion[brand],
+                np.array(one_hot[brand])
+            )
+        else:
+            raise Exception('WRONG STAGE')
 
-        brand_train_data, brand_train_label, brand_delta, brand_mapping = generate_brand_produce_training_data(
-            data_per_brand[brand],
-            brand_index,
-            criterion[brand],
-            np.array(one_hot[brand])
-        )
         train_data_list.append(brand_train_data)
         train_label_list.append(brand_train_label)
         delta_list.append(brand_delta)

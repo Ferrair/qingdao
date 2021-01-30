@@ -26,8 +26,8 @@ def load_latest_model_dir() -> str:
     return load_all_model_dir()[0]
 
 
-def make_new_model_dir():
-    os.mkdir(MODEL_SAVE_DIR + "/" + get_current_time())
+def make_new_model_dir(current_time):
+    os.mkdir(MODEL_SAVE_DIR + "/" + current_time)
 
 
 def load_current_model(param: str) -> str:
@@ -67,7 +67,13 @@ def humid_stable(original_humid: list, setting: float) -> bool:
         return False
 
 
-def train_and_save_model(X: np.array, X_test: np.array, y: np.array, y_test: np.array, brand_name_list: list):
+def train_and_save_model(X: np.array,
+                         X_test: np.array,
+                         y: np.array,
+                         y_test: np.array,
+                         brand_name_list: list,
+                         current_time: str,
+                         stage='produce'):
     """
     训练生产阶段模型
     :param y_test:
@@ -75,10 +81,12 @@ def train_and_save_model(X: np.array, X_test: np.array, y: np.array, y_test: np.
     :param brand_name_list:
     :param X:
     :param y:
+    :param stage
+    :param current_time
     :return:
     """
     new_model = LRModel()
-    logging.info("Training ...")
+    logging.info("Training {} ...".format(stage))
     new_model.train(X, y)
 
     X_test_scaler = new_model.scaler.transform(X_test)
@@ -86,10 +94,9 @@ def train_and_save_model(X: np.array, X_test: np.array, y: np.array, y_test: np.
     mae = round(mean_absolute_error(y_test[:, :2], pred[:, :2]), 3)
     logging.info('mae: {}'.format(mae))
 
-    make_new_model_dir()
 
-    model_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + get_current_time() + "#produce" + "#" + str(mae)
-    one_hot_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + get_current_time() + "#one-hot-brands.txt"
+    model_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + current_time + "#{}".format(stage) + "#" + str(mae)
+    one_hot_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + current_time + "#one-hot-brands.txt"
 
     dump(new_model.model, model_filename + '.joblib')
     dump(new_model.scaler, model_filename + '.pkl')
