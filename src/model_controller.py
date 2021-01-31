@@ -304,16 +304,21 @@ def train_model(train_file):
     current_time = get_current_time()
 
     make_new_model_dir(current_time)
+    try:
+        X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
+            generate_all_training_data(data_per_brand, criterion, one_hot, 'produce')
+        # 训练并保存模型
+        train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()), current_time, 'produce')
+    except Exception as e:
+        logging.exception('TRAIN PRODUCE: {}'.format(e))
 
-    X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
-        generate_all_training_data(data_per_brand, criterion, one_hot, 'produce')
-    # 训练并保存模型
-    train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()), current_time, 'produce')
-
-    X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
-        generate_all_training_data(data_per_brand, criterion, one_hot, 'transition')
-    # 训练并保存模型
-    train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()), current_time, 'transition')
+    try:
+        X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
+            generate_all_training_data(data_per_brand, criterion, one_hot, 'transition')
+        # 训练并保存模型
+        train_and_save_model(X_train, X_test, y_train, y_test, list(data_per_brand.keys()), current_time, 'transition')
+    except Exception as e:
+        logging.exception('TRAIN TRANSITION: {}'.format(e))
 
 
 @app.route('/api/train', methods=["POST"])

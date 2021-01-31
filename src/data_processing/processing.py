@@ -498,6 +498,9 @@ def generate_all_training_data(data_per_brand: dict, criterion: dict, one_hot: d
         logging.info('{} : {}'.format(brand, len(brand_train_data)))
         logging.info('time: {}'.format(datetime.now() - start))
 
+    if len(train_data_list) == 0:
+        raise Exception('训练数据太少了，没有找到合适的数据。')
+
     X_produce = concatenate(train_data_list)
     y_produce = concatenate(train_label_list)
     delta_produce = concatenate(delta_list)
