@@ -45,8 +45,14 @@ HUMID_AFTER_CUT_RANGE = 180  # 选取这么多时间的切丝后出口水分平�
 FLOW_LIMIT = 2000  # 流量判断
 FLOW_MIN = 10  # 流量判断
 MIN_DATA_NUM = 2  # 最少的数据限制
-HUMID_EPSILON = 4  # 低于这个出口水分
+#HUMID_EPSILON = 4  # 低于这个出口水分
+#延长头料时间，减小Transition高温影响
+HUMID_EPSILON = 11  # 低于这个出口水分
 HEAD_MAX_TIME = 300  # 头料阶段最大时间，大于这个时间就当做生产状态了
+
+#Head algorithm
+DRY_RATIO = 0.126
+TEMP_RATIO = 0.7
 
 # 烘干后出口水分设定值
 criterion = {'Txy###': 12.699999999999994,

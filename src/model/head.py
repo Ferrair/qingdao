@@ -130,19 +130,19 @@ class HeadModel(BasicModel):
                             humid_sum + humid_before_drying_cur,
                             output_humid, current_work_dry))
 
-                    last_temp_1 = standard_temp_1 + 0.12 * (current_work_dry - recent_work_dry)
+                    last_temp_1 = standard_temp_1 + DRY_RATIO * (current_work_dry - recent_work_dry) * TEMP_RATIO
                 else:
                     current_work_dry = self.calc_work_dry(flow=flow_set, input_flow_humid=humid_after_cut_sum,
                                                           input_humid=humid_sum + humid_after_cut_sum,
                                                           output_humid=output_humid)
                     logging.info(
-                        'work dry: flow={}, after_cut_humid={}, input_humid={}, output_humid={}, work_dry={}'.format(
-                            flow,
+                        'work dry: flowset={}, after_cut_humid={}, input_humid={}, output_humid={}, work_dry={}'.format(
+                            flow_set,
                             humid_before_drying_cur,
                             humid_sum + humid_before_drying_cur,
                             output_humid, current_work_dry))
 
-                    last_temp_1 = standard_temp_1 + 0.12 * (current_work_dry - recent_work_dry)
+                    last_temp_1 = standard_temp_1 + DRY_RATIO * (current_work_dry - recent_work_dry) * TEMP_RATIO
             ##################################
             else:
                 if self.timer >= self.range_1_lag + 120:
@@ -174,19 +174,19 @@ class HeadModel(BasicModel):
                             humid_sum + humid_before_drying_cur,
                             output_humid, current_work_dry))
 
-                    last_temp_2 = standard_temp_2 + 0.12 * (current_work_dry - recent_work_dry)
+                    last_temp_2 = standard_temp_2 + DRY_RATIO * (current_work_dry - recent_work_dry) * TEMP_RATIO
                 else:
                     current_work_dry = self.calc_work_dry(flow=flow_set, input_flow_humid=humid_after_cut_sum,
                                                           input_humid=humid_sum + humid_after_cut_sum,
                                                           output_humid=output_humid)
                     logging.info(
-                        'work dry: flow={}, after_cut_humid={}, input_humid={}, output_humid={}, work_dry={}'.format(
-                            flow,
+                        'work dry: flow_set={}, after_cut_humid={}, input_humid={}, output_humid={}, work_dry={}'.format(
+                            flow_set,
                             humid_before_drying_cur,
                             humid_sum + humid_before_drying_cur,
                             output_humid, current_work_dry))
 
-                    last_temp_2 = standard_temp_2 + 0.12 * (current_work_dry - recent_work_dry)
+                    last_temp_2 = standard_temp_2 + DRY_RATIO * (current_work_dry - recent_work_dry) * TEMP_RATIO
             ##################################
             else:
                 if self.timer >= self.range_2_lag + 120:

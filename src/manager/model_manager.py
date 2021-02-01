@@ -47,7 +47,7 @@ def load_current_model(param: str) -> str:
 
 def humid_stable(original_humid: list, setting: float) -> bool:
     """
-    连续 20 条数据出口水分与设定值误差不大于 0.1, 则认为出口水分已稳定
+    连续 20 条数据出口水分与设定值误差不大于 0.15, 则认为出口水分已稳定
     :param original_humid: 输入的出口水分数据
     :param setting: 出口水分设定值
     :return:
@@ -58,7 +58,7 @@ def humid_stable(original_humid: list, setting: float) -> bool:
 
         original_humid = original_humid[-20:]
         original_humid_diff = np.array([abs(float(i) - setting) for i in original_humid])
-        if np.any(original_humid_diff > 0.1):
+        if np.any(original_humid_diff > 0.15):
             return False
 
         return True
@@ -445,8 +445,10 @@ class Determiner:
                 try:
                     # 根据牛工建议选用前1/3最大的水分humid_after_cut进行计算平均值，去除调较小的水分:降序排列
                     self.humid_after_cut.sort(reverse=True)
-                    humid_after_cut_clip = self.humid_after_cut[:int(len(self.humid_after_cut) / 3)]
-                    humid_after_cut_float = sum(humid_after_cut_clip) / len(humid_after_cut_clip)
+                    humid_after_cut_sortclip = self.humid_after_cut[:int(len(self.humid_after_cut)/3)]
+                    logging.info(
+                        'the max 30% humid_after_cut_sortclip after sort: {}, {}'.format(humid_after_cut_sortclip))
+                    humid_after_cut_float = sum(humid_after_cut_sortclip) / len(humid_after_cut_sortclip)
 
                     # humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
@@ -517,12 +519,19 @@ class Determiner:
                                                                self.head_model.ratio[brand][1],
                                                                humid_use,
                                                                self.standard_temp.get('s2')))
+                # last_temp_1 = float(
+                #     self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
+                #     * humid_use * 1.1 + float(self.standard_temp.get('s1')))
+                # last_temp_2 = float(
+                #     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
+                #     * humid_use * 1.1 + float(self.standard_temp.get('s2')))
+
                 last_temp_1 = float(
                     self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
-                    * humid_use * 1.1 + float(self.standard_temp.get('s1')))
+                    * humid_use + float(self.standard_temp.get('s1')))
                 last_temp_2 = float(
                     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
-                    * humid_use * 1.1 + float(self.standard_temp.get('s2')))
+                    * humid_use + float(self.standard_temp.get('s2')))
 
                 try:
                     logging.info('transition features shape: {}'.format(transition_feature.shape))
