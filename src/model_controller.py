@@ -121,13 +121,7 @@ def calc_feature(originals):
             SPLIT_NUM
         )
 
-        transition_feature = calc_feature_lr(
-            pd.DataFrame(data, columns=columns),
-            TRANSITION_SPLIT_NUM,
-            start=len(data) - TRANSITION_FEATURE_RANGE,
-            end=len(data)
-        )
-        return produce_feature, transition_feature
+        return produce_feature
     except Exception as e:
         logging.exception(e)
 
@@ -139,7 +133,7 @@ def _predict(originals, time_dict):
 
     # Check Feature
     # 判断Flink计算的特征是否正确
-    produce_features, transition_feature = calc_feature(originals)
+    produce_features = calc_feature(originals)
 
     if len(originals) == 0:
         logging.exception('len(originals) == 0')
@@ -174,18 +168,16 @@ def _predict(originals, time_dict):
         return wrap_failure(PARAMETERS_ERROR, 'features contains nan')
 
     produce_features = np.concatenate([produce_features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
-    transition_feature = np.concatenate([transition_feature, get_auxiliary(), [criterion[brand]], one_hot[brand]])
 
     df = gen_dataframe(originals)
 
-    logging.info('Start pred with len(p_features) = {}, len(t_features) = {}, len(originals) = {}'.format(
+    logging.info('Start pred with len(p_features) = {}, len(originals) = {}'.format(
         len(produce_features),
-        len(transition_feature),
         len(originals))
     )
 
     try:
-        pred = determiner.dispatch(df=df, produce_features=produce_features, transition_feature=transition_feature)
+        pred = determiner.dispatch(df=df, produce_features=produce_features)
         determiner.read_adjust_params(brand)
         logging.info('counter: {} -- Pred before adjust: {}, {}, HUMID: {}'
                      .format(determiner.counter, pred[0], pred[1], current_data[HUMID_AFTER_DRYING]))

@@ -13,6 +13,7 @@ from src.config.db_setup import *
 from src.model.head import HeadModel
 from src.model.lr_model import LRModel
 from src.model.tail import TailModel
+from src.model.transition import TransitionModel
 from src.utils.util import read_config, save_config, get_current_time
 
 from joblib import dump
@@ -95,8 +96,8 @@ def train_and_save_model(X: np.array,
     logging.info('mae: {}'.format(mae))
     mae = 0.10
 
-
-    model_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + current_time + "#{}".format(stage) + "#" + str(mae)
+    model_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + current_time + "#{}".format(stage) + "#" + str(
+        mae)
     one_hot_filename = MODEL_SAVE_DIR + load_latest_model_dir() + "/" + current_time + "#one-hot-brands.txt"
 
     dump(new_model.model, model_filename + '.joblib')
@@ -291,19 +292,20 @@ class Determiner:
     def update_model(self):
         if self.produce_model is not None:
             self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
-        if self.transition_model is not None:
-            self.transition_model.load(MODEL_SAVE_DIR + load_current_model('transition'))
+        # if self.transition_model is not None:
+        #    self.transition_model.load(MODEL_SAVE_DIR + load_current_model('transition'))
 
     def init_model(self, next_range_1: int, next_range_2: int):
         logging.info('init Model')
         self.head_model = HeadModel()
         self.tail_model = TailModel(next_range_1, next_range_2)
-        self.transition_model = LRModel()
+        self.transition_model = TransitionModel()
         self.produce_model = LRModel()
 
         self.head_model.load(CONFIG_PATH + load_current_model('head'))
+        self.transition_model.load(CONFIG_PATH + load_current_model('head'))
+
         self.produce_model.load(MODEL_SAVE_DIR + load_current_model('produce'))
-        self.transition_model.load(MODEL_SAVE_DIR + load_current_model('transition'))
 
         # 计算头料的
         self.head_flag = False
@@ -325,11 +327,10 @@ class Determiner:
 
         self.counter = 0
 
-    def dispatch(self, df: pd.DataFrame, produce_features, transition_feature: np.array) -> list:
+    def dispatch(self, df: pd.DataFrame, produce_features) -> list:
         """
         :param df: 一个Windows长度的数据，数组最后一个点的数据为当前时刻的数据
         :param produce_features: 特征：只有produce才会使用
-        :param transition_feature: 特征：只有transition才会使用
         非常重要的一个的方法，根据数据来判断使用那个模型，并进行预测，然后输出结果
         :return:
         """
@@ -445,7 +446,7 @@ class Determiner:
                 try:
                     # 根据牛工建议选用前1/3最大的水分humid_after_cut进行计算平均值，去除调较小的水分:降序排列
                     self.humid_after_cut.sort(reverse=True)
-                    humid_after_cut_sortclip = self.humid_after_cut[:int(len(self.humid_after_cut)/3)]
+                    humid_after_cut_sortclip = self.humid_after_cut[:int(len(self.humid_after_cut) / 3)]
                     logging.info(
                         'the max 30% humid_after_cut_sortclip after sort: {}, {}'.format(humid_after_cut_sortclip))
                     humid_after_cut_float = sum(humid_after_cut_sortclip) / len(humid_after_cut_sortclip)
@@ -519,12 +520,6 @@ class Determiner:
                                                                self.head_model.ratio[brand][1],
                                                                humid_use,
                                                                self.standard_temp.get('s2')))
-                # last_temp_1 = float(
-                #     self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
-                #     * humid_use * 1.1 + float(self.standard_temp.get('s1')))
-                # last_temp_2 = float(
-                #     self.head_model.stable_per_brand[brand][1] + self.head_model.ratio[brand][1]
-                #     * humid_use * 1.1 + float(self.standard_temp.get('s2')))
 
                 last_temp_1 = float(
                     self.head_model.stable_per_brand[brand][0] + self.head_model.ratio[brand][0]
@@ -534,13 +529,25 @@ class Determiner:
                     * humid_use + float(self.standard_temp.get('s2')))
 
                 try:
-                    logging.info('transition features shape: {}'.format(transition_feature.shape))
-                    pred = self.transition_model.predict(transition_feature)
-                    pred = list(pred.ravel())
-                    logging.info('transition rslt: {}'.format(pred))
+                    pred = self.transition_model.predict(
+                        brand=current_data[BRADN],
+                        flow_set=float(current_data[FLOW_SET]),
+                        flow=float(current_data[FLOW]),
+                        recent_humid=self.recent_batch_humid,
+                        output_humid=current_data[HUMID_AFTER_DRYING_SETTING],
+                        recent_work_dry=self.recent_work_dry,
+                        humid_sum=current_data[HUMID_MOIST_INC],
+                        humid_before_drying_sum=humid_before_drying_float,
+                        humid_before_drying_cur=current_data[HUMID_BEFORE_DRYING],
+                        standard_temp_2=float(self.standard_temp.get('s2')),
+                        standard_temp_1=float(self.standard_temp.get('s1')),
+                        last_temp_1=float(current_data[TEMP1]),
+                        last_temp_2=float(current_data[TEMP2])
+                    )
+                    logging.info('last_temp_1/2: {}, {}, pred: {}, {}'.format(last_temp_1, last_temp_2, pred[0], pred[1]))
                     return [last_temp_1 * 0.5 + pred[0] * 0.5, last_temp_2 * 0.5 + pred[1] * 0.5]
                 except Exception as e:
-                    logging.exception(e)
+                    logging.exception('transition fail: {}'.format(e))
 
                 return [last_temp_1, last_temp_2]
 
