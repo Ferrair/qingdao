@@ -538,7 +538,7 @@ class Determiner:
                     pred = self.transition_model.predict(transition_feature)
                     pred = list(pred.ravel())
                     logging.info('transition rslt: {}'.format(pred))
-                    return [last_temp_1 * 0.7 + pred[0] * 0.3, last_temp_2 * 0.7 + pred[1] * 0.3]
+                    return [last_temp_1 * 0.5 + pred[0] * 0.5, last_temp_2 * 0.5 + pred[1] * 0.5]
                 except Exception as e:
                     logging.exception(e)
 
