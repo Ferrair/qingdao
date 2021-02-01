@@ -237,11 +237,11 @@ class Determiner:
                 k = float(row[2])
                 s = float(row[3])
                 if row[4] == STANDARD_TEMP_1:
-                    min_1 = int(row[5])
-                    max_1 = int(row[6])
+                    min_1 = float(row[5])
+                    max_1 = float(row[6])
                 if row[4] == STANDARD_TEMP_2:
-                    min_2 = int(row[5])
-                    max_2 = int(row[6])
+                    min_2 = float(row[5])
+                    max_2 = float(row[6])
         except Exception as e:
             logging.exception('read_adjust_params error: {}'.format(e))
 
@@ -448,12 +448,17 @@ class Determiner:
                     humid_after_cut_ = sorted(self.humid_after_cut, reverse=True)
                     humid_after_cut_clip = humid_after_cut_[:int(len(humid_after_cut_) / 3)]
                     humid_after_cut_float = sum(humid_after_cut_clip) / len(humid_after_cut_clip)
-
-                except ZeroDivisionError as e:
-                    logging.info(
-                        'humid_after_cut_float ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut),
-                                                                                 len(self.humid_after_cut)))
-                    humid_after_cut_float = 19
+                    logging.info('humid_after_cut_float: {}'.format(humid_after_cut_float))
+                except Exception as e:
+                    try:
+                        humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                    except ZeroDivisionError as e:
+                        logging.info(
+                            'humid_after_cut_float ZeroDivisionError: {}, {}'.format(
+                                sum(self.humid_after_cut),
+                                len(self.humid_after_cut))
+                        )
+                        humid_after_cut_float = 19
 
                 try:
                     humid_before_drying = list(self.q.queue)
@@ -541,7 +546,8 @@ class Determiner:
                         last_temp_1=float(current_data[TEMP1]),
                         last_temp_2=float(current_data[TEMP2])
                     )
-                    logging.info('last_temp_1/2: {}, {}, pred: {}, {}'.format(last_temp_1, last_temp_2, pred[0], pred[1]))
+                    logging.info(
+                        'last_temp_1/2: {}, {}, pred: {}, {}'.format(last_temp_1, last_temp_2, pred[0], pred[1]))
                     return [last_temp_1 * 0.5 + pred[0] * 0.5, last_temp_2 * 0.5 + pred[1] * 0.5]
                 except Exception as e:
                     logging.exception('transition fail: {}'.format(e))

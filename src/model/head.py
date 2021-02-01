@@ -119,7 +119,7 @@ class HeadModel(BasicModel):
             ##################################
             #### 使用脱水量来继续计算
             if recent_work_dry is not None:
-                if self.timer >= self.range_1_lag + 120:
+                if self.timer >= self.range_1_lag + 135:
                     current_work_dry = self.calc_work_dry(flow=flow, input_flow_humid=humid_before_drying_cur,
                                                           input_humid=humid_sum + humid_before_drying_cur,
                                                           output_humid=output_humid)
@@ -145,7 +145,7 @@ class HeadModel(BasicModel):
                     last_temp_1 = standard_temp_1 + DRY_RATIO * (current_work_dry - recent_work_dry) * TEMP_RATIO
             ##################################
             else:
-                if self.timer >= self.range_1_lag + 120:
+                if self.timer >= self.range_1_lag + 135:
                     last_temp_1 = float(self.stable_per_brand[brand][0] + self.ratio[brand][
                         0] * humid_before_drying_cur * 1.1 + standard_temp_1)
                 else:
@@ -163,7 +163,7 @@ class HeadModel(BasicModel):
             ##################################
             #### 使用脱水量来继续计算
             if recent_work_dry is not None:
-                if self.timer >= self.range_2_lag + 120:
+                if self.timer >= self.range_2_lag + 135:
                     current_work_dry = self.calc_work_dry(flow=flow, input_flow_humid=humid_before_drying_cur,
                                                           input_humid=humid_sum + humid_before_drying_cur,
                                                           output_humid=output_humid)
@@ -189,7 +189,7 @@ class HeadModel(BasicModel):
                     last_temp_2 = standard_temp_2 + DRY_RATIO * (current_work_dry - recent_work_dry) * TEMP_RATIO
             ##################################
             else:
-                if self.timer >= self.range_2_lag + 120:
+                if self.timer >= self.range_2_lag + 135:
                     last_temp_2 = float(self.stable_per_brand[brand][1] + self.ratio[brand][
                         1] * humid_before_drying_cur * 1.1 + standard_temp_2)
                 else:
