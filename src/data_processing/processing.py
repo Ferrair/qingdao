@@ -38,8 +38,8 @@ TIME_IN_ROLLER = 70  # 烟丝在一个滚筒的时间
 MODEL_CRITERION = 0.05  # 模型标准，工艺标准为0.5
 FEATURE_RANGE = 60  # 特征选取的区间范围
 LABEL_RANGE = 10  # Label选取的区间范围
-SETTING_LAG = 20  # 设定值和实际值的时延
-REACTION_LAG = 10  # 实际值调整后，水分变化的时延
+SETTING_LAG = 20 * 2  # 设定值和实际值的时延
+REACTION_LAG = 10 * 2  # 实际值调整后，水分变化的时延
 FURTHER_STEP = 10  # 未来时刻出口水分采样步长
 
 MODEL_TRANSITION_CRITERION = 0.05
@@ -301,8 +301,9 @@ def generate_brand_produce_training_data(item_brand, brand_index, setting, one_h
             adjust_end = stable_start - REACTION_LAG - SETTING_LAG
             adjust_start = adjust_end - LABEL_RANGE
             # store feature
-            auxiliary_ = item_batch[HUMIDITY].values.ravel()[
-                         adjust_end: stable_start + STABLE_WINDOWS_SIZE: FURTHER_STEP]
+            auxiliary_ = item_batch[HUMIDITY].values.ravel()[adjust_end: stable_start + STABLE_WINDOWS_SIZE: FURTHER_STEP]
+            logging.info('auxiliary_: {}, {}, {}, {}'.format(auxiliary_, adjust_end, stable_start + STABLE_WINDOWS_SIZE,
+                                                      FURTHER_STEP))
             auxiliary_ = auxiliary_ - setting
             brand_train_data.append(
                 np.concatenate([

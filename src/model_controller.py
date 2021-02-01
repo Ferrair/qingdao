@@ -166,6 +166,7 @@ def _predict(originals, features, time_dict):
     if sum(np.isnan(produce_features)) > 0:
         return wrap_failure(PARAMETERS_ERROR, 'features contains nan')
 
+    # 1200 + 7 + 1 + 8 = 1216
     produce_features = np.concatenate([produce_features, get_auxiliary(), [criterion[brand]], one_hot[brand]])
 
     df = gen_dataframe(originals)
@@ -296,6 +297,7 @@ def train_model(train_file):
 
     make_new_model_dir(current_time)
     try:
+
         X_train, X_test, y_train, y_test, index_train, index_test, delta_train, delta_test = \
             generate_all_training_data(data_per_brand, criterion, one_hot, 'produce')
         # 训练并保存模型
