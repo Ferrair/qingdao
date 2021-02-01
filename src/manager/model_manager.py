@@ -444,12 +444,7 @@ class Determiner:
             if self.head_flag:
                 logging.info('Current in Head Model.')
                 try:
-                    # 根据牛工建议选用前1/3最大的水分humid_after_cut进行计算平均值，去除调较小的水分:降序排列
-                    self.humid_after_cut.sort(reverse=True)
-                    humid_after_cut_clip = self.humid_after_cut[:int(len(self.humid_after_cut) / 3)]
-                    humid_after_cut_float = sum(humid_after_cut_clip) / len(humid_after_cut_clip)
-
-                    # humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
+                    humid_after_cut_float = sum(self.humid_after_cut) / len(self.humid_after_cut)
                 except ZeroDivisionError as e:
                     logging.info(
                         'humid_after_cut_float ZeroDivisionError: {}, {}'.format(sum(self.humid_after_cut),
