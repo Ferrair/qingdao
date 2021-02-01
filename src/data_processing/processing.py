@@ -73,10 +73,7 @@ def calc_feature_lr(item_: pd.DataFrame, split_num: int, start: int = None, end:
     :param split_num: how many splits after splitting
     :return: feature array
     """
-    if start and end:
-        feature_slice = item_[feature_plc_columns].iloc[start: end].values
-    else:
-        feature_slice = item_[feature_plc_columns].values
+    feature_slice = item_[feature_plc_columns].values
 
     # shape = (SPLIT_NUM, FEATURE_RANGE / SPLIT_NUM, FEATURE_NUM)
     feature_slice = np.array(np.vsplit(feature_slice, split_num))

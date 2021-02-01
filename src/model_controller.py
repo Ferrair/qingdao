@@ -112,28 +112,27 @@ def add_random(pred):
     return [pred[0] + (random.random() - 0.5) / 10, pred[1] + (random.random() - 0.5) / 10]
 
 
-def calc_feature(originals):
+def calc_feature(originals, features):
     try:
-        columns = list(originals[0].keys())
-        data = [list(item.values()) for item in originals]
-        produce_feature = calc_feature_lr(
-            pd.DataFrame(data, columns=columns),
-            SPLIT_NUM
-        )
-
-        return produce_feature
+        if len(originals) == FEATURE_RANGE:
+            columns = list(originals[0].keys())
+            data = [list(item.values()) for item in originals]
+            computed_features = calc_feature_lr(pd.DataFrame(data, columns=columns), SPLIT_NUM)
+            return computed_features
     except Exception as e:
-        logging.exception(e)
+        logging.error(e)
+        return features
+    return features
 
 
-def _predict(originals, time_dict):
+def _predict(originals, features, time_dict):
     # pred_start_time = time_dict.get('pred_start_time', 0)
     # kafka_time = time_dict.get('kafka_time', 0)
     sample_time = time_dict.get('sample_time', 0)
 
     # Check Feature
     # 判断Flink计算的特征是否正确
-    produce_features = calc_feature(originals)
+    produce_features = calc_feature(originals, features)
 
     if len(originals) == 0:
         logging.exception('len(originals) == 0')
@@ -348,14 +347,14 @@ def predict_api():
         pred_start_time = int(time.time() * 1000)
         sample_time = data.get('time', 0)
         kafka_time = data.get('kafka_time', 0)
+        features = data.get('features', [])
         originals = data.get('originals', [])
         originals = format_originals(originals)
-        return _predict(originals,
-                        {
-                            'pred_start_time': pred_start_time,
-                            'sample_time': sample_time,
-                            'kafka_time': kafka_time,
-                        })
+        return _predict(originals, features, {
+            'pred_start_time': pred_start_time,
+            'sample_time': sample_time,
+            'kafka_time': kafka_time,
+        })
     except Exception as e:
         logging.exception(e)
         return wrap_failure(UNKNOWN_ERROR, 'Unknown error {}'.format(e))
