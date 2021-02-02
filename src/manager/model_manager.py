@@ -327,10 +327,11 @@ class Determiner:
 
         self.counter = 0
 
-    def dispatch(self, df: pd.DataFrame, produce_features) -> list:
+    def dispatch(self, df: pd.DataFrame, produce_features, current_brand: str) -> list:
         """
         :param df: 一个Windows长度的数据，数组最后一个点的数据为当前时刻的数据
         :param produce_features: 特征：只有produce才会使用
+        :param current_brand: 排号
         非常重要的一个的方法，根据数据来判断使用那个模型，并进行预测，然后输出结果
         :return:
         """
@@ -346,7 +347,6 @@ class Determiner:
                                                                                      self.transition_flag,
                                                                                      self.produce_flag,
                                                                                      self.tail_flag))
-        current_brand = current_data[BRADN]
 
         # current_batch = None
         try:

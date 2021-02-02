@@ -139,7 +139,10 @@ def _predict(originals, features, time_dict):
         return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
 
     current_data = originals[len(originals) - 1]
-    brand = current_data[BRADN]
+    if int(current_data[FLOW]) >= 2000 and int(current_data[FLOW_TOTAL]) >= 10:
+        brand = current_data[BRADN_DRYING]
+    else:
+        brand = current_data[BRADN]
     batch = current_data[BATCH]
 
     # # 检查顺序
@@ -177,7 +180,7 @@ def _predict(originals, features, time_dict):
     )
 
     try:
-        pred = determiner.dispatch(df=df, produce_features=produce_features)
+        pred = determiner.dispatch(df=df, produce_features=produce_features, brand=brand)
         determiner.read_adjust_params(brand)
         logging.info('counter: {} -- Pred before adjust: {}, {}, HUMID: {}'
                      .format(determiner.counter, pred[0], pred[1], current_data[HUMID_AFTER_DRYING]))
@@ -197,7 +200,17 @@ def _predict(originals, features, time_dict):
                 if int(determiner.counter) % n == 0:
                     pred[0] += float(x * k * s)
                     pred[1] += float(x * k * s)
-                    logging.info('Pred after feedback {}, {}'.format(pred[0], pred[1]))
+                    logging.info('Pred after small feedback {}, {}'.format(pred[0], pred[1]))
+
+                m, lambda_ = 120, 3
+                if determiner.counter > m:
+                    x = float(np.mean(df[HUMID_AFTER_DRYING].values[-m:]) - criterion[brand])
+                    k = float(determiner.adjust_params.get("k"))
+                    s = float(determiner.adjust_params.get("s"))
+                    pred[0] += float(x * k * s * lambda_)
+                    pred[1] += float(x * k * s * lambda_)
+                    logging.info('Pred after big feedback {}, {}'.format(pred[0], pred[1]))
+
             except Exception as e:
                 logging.exception('Feedback error: {}'.format(e))
 
