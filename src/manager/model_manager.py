@@ -401,6 +401,12 @@ class Determiner:
                 self.produce_flag = False
                 self.tail_flag = False
 
+                if self.transition_counter > 60:
+                    self.head_flag = False
+                    self.transition_flag = False
+                    self.produce_flag = True
+                    self.tail_flag = False
+
             # 当前就是生产阶段，或者出口水分已稳定 --> ProductModel
             if self.produce_flag is True or humid_stable(list(df[HUMID_AFTER_DRYING].values),
                                                          float(criterion[current_brand])):
@@ -493,7 +499,7 @@ class Determiner:
 
             if self.transition_flag:
                 self.transition_counter += 1
-                logging.info('Current in Transition Model.')
+                logging.info('Current in Transition Model. counter: {}'.format(self.transition_counter))
                 brand = current_data[BRADN]
                 # try:
                 #     humid_after_cut_float = sum(self.humid_after_cut_sum) / len(self.humid_after_cut_sum)

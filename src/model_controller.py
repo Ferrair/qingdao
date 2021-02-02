@@ -199,18 +199,29 @@ def _predict(originals, features, time_dict):
                 x = float(np.mean(df[HUMID_AFTER_DRYING].values[-m:]) - criterion[brand])
                 logging.info('Feedback: {}, {}, {}, {}, {}, {}'.format(determiner.counter, n, m, x, k, s))
                 if int(determiner.counter) % n == 0:
-                    pred[0] += float(x * k * s)
-                    pred[1] += float(x * k * s)
+                    if x > 0: # 潮湿
+                        pred[0] += float(x * k * s * 2)
+                        pred[1] += float(x * k * s * 2)
+                    else: # 干燥
+                        pred[0] += float(x * k * s)
+                        pred[1] += float(x * k * s)
                     logging.info('Pred after small feedback {}, {}'.format(pred[0], pred[1]))
 
-                m, lambda_ = 120, 3
-                if determiner.counter > m:
-                    x = float(np.mean(df[HUMID_AFTER_DRYING].values[-m:]) - criterion[brand])
-                    k = float(determiner.adjust_params.get("k"))
-                    s = float(determiner.adjust_params.get("s"))
-                    pred[0] += float(x * k * s * lambda_)
-                    pred[1] += float(x * k * s * lambda_)
-                    logging.info('Pred after big feedback {}, {}'.format(pred[0], pred[1]))
+                # 大窗
+                # m = 120
+                # if determiner.counter > m:
+                #     x = float(np.mean(df[HUMID_AFTER_DRYING].values[-m:]) - criterion[brand])
+                #     # 潮湿
+                #     if x > 0:
+                #         lambda_ = 1.5
+                #     # 干燥
+                #     else:
+                #         lambda_ = 1.5
+                #     k = float(determiner.adjust_params.get("k"))
+                #     s = float(determiner.adjust_params.get("s"))
+                #     pred[0] += float(x * k * s * lambda_)
+                #     pred[1] += float(x * k * s * lambda_)
+                #     logging.info('Pred after big feedback {}, {}'.format(pred[0], pred[1]))
 
             except Exception as e:
                 logging.exception('Feedback error: {}'.format(e))
