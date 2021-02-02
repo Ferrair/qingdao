@@ -555,6 +555,10 @@ class Determiner:
                 return [last_temp_1, last_temp_2]
 
             if self.produce_flag:
+                if len(produce_features) != 1216:
+                    logging.exception('len(produce_features) != 1216')
+                    pred = [float(current_data[TEMP1]), float(current_data[TEMP2])]
+                    return pred
                 logging.info('Current in Produce Model.')
                 logging.info('features shape: {}'.format(produce_features.shape))
                 self.counter += 1

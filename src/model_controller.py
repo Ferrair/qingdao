@@ -138,6 +138,7 @@ def _predict(originals, features, time_dict):
         logging.exception('len(originals) == 0')
         return wrap_failure(PARAMETERS_ERROR, 'len(originals) == 0')
 
+    originals = originals[-FEATURE_RANGE:]
     current_data = originals[len(originals) - 1]
     if int(current_data[FLOW]) >= 2000 and int(current_data[FLOW_TOTAL]) >= 10:
         brand = current_data[BRADN_DRYING]
@@ -180,7 +181,7 @@ def _predict(originals, features, time_dict):
     )
 
     try:
-        pred = determiner.dispatch(df=df, produce_features=produce_features, brand=brand)
+        pred = determiner.dispatch(df=df, produce_features=produce_features, current_brand=brand)
         determiner.read_adjust_params(brand)
         logging.info('counter: {} -- Pred before adjust: {}, {}, HUMID: {}'
                      .format(determiner.counter, pred[0], pred[1], current_data[HUMID_AFTER_DRYING]))
