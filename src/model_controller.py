@@ -153,8 +153,6 @@ def _predict(originals, features, time_dict):
     #     return wrap_failure(PARAMETERS_ERROR,
     #                         'sample_time: {} < previous_time: {}'.format(sample_time, previous_time_dict.get(brand)))
     # previous_time_dict[brand] = sample_time
-    logging.info('brand: {}'.format(brand))
-    logging.info('originals: {}'.format(originals))
     if brand not in one_hot.keys():
         if brand_strict:
             logging.info('our model cannot handle new brand: ' + brand)
