@@ -401,11 +401,15 @@ class Determiner:
                 self.produce_flag = False
                 self.tail_flag = False
 
-                if self.transition_counter > 60:
-                    self.head_flag = False
-                    self.transition_flag = False
-                    self.produce_flag = True
-                    self.tail_flag = False
+            logging.info('self.transition_counter: {}, {}'.format(
+                self.transition_counter,
+                self.produce_flag or self.transition_flag
+            ))
+            if (self.produce_flag or self.transition_flag) and self.transition_counter > 60:
+                self.head_flag = False
+                self.transition_flag = False
+                self.produce_flag = True
+                self.tail_flag = False
 
             # 当前就是生产阶段，或者出口水分已稳定 --> ProductModel
             if self.produce_flag is True or humid_stable(list(df[HUMID_AFTER_DRYING].values),
